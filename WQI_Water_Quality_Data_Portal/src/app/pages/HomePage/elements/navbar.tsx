@@ -17,6 +17,9 @@ export function Navbar() {
       <CustomNavLink to="/about">
         <span style={{ fontSize: '16px' }}>About the data</span>
       </CustomNavLink>
+      <CustomNavLink to="/analysis-download">
+        <span style={{ fontSize: '16px' }}>Analysis Download</span>
+      </CustomNavLink>
       <ChoicesStrip></ChoicesStrip>
     </NavBar>
   );
@@ -51,7 +54,6 @@ const CustomNavLink = styled(NavLink)`
   text-decoration: none;
   min-width: 48px;
   height: 100%;
-  // margin: 10px;
   padding: 0.625rem 1rem;
   display: flex;
   flex-direction: row;

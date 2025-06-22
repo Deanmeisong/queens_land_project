@@ -6,6 +6,7 @@ import { GlobalStyle } from 'styles/global-styles';
 import { HomePage } from './pages/HomePage/Loadable';
 import { AboutData } from './pages/AboutData/Loadable';
 import { Map } from './pages/Map/Loadable';
+import { AnalysisDownload } from './pages/AnalysisDownload/Loadable';
 import { NotFoundPage } from './components/NotFoundPage/Loadable';
 
 import esriConfig from '@arcgis/core/config';
@@ -50,6 +51,7 @@ export function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/about" element={<AboutData />} />
         <Route path="/map" element={<Map />} />
+        <Route path="/analysis-download" element={<AnalysisDownload />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       <GlobalStyle />
