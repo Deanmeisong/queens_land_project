@@ -27,6 +27,7 @@
     "@types/testing-library__jest-dom": "^5.14.5",
     "@types/webpack": "^5.28.0",
     "@types/webpack-env": "^1.18.0",
+    "archiver": "7.0.1",
     "calcite-ui-icons-react": "0.39.0",
     "carbon-components": "10.58.3",
     "carbon-components-react": "8.32.0",

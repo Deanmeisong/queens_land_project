@@ -1,11 +1,18 @@
+require('dotenv').config();
+
+// Then your other imports
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
-const csvRoutes = require('./routes/csv');
+const csvRoutes = require('./routes/csv'); // This loads after dotenv now
 const { errorHandler, notFound } = require('./middleware/errorHandler');
 
-// Load environment variables
-dotenv.config();
+// ADD THIS DEBUG CODE:
+console.log('🔍 DEBUGGING ENVIRONMENT VARIABLES:');
+console.log('  MOCK_SERVER_URL:', process.env.MOCK_SERVER_URL);
+console.log('  PORT:', process.env.PORT);
+console.log('  NODE_ENV:', process.env.NODE_ENV);
+console.log('  Current working directory:', process.cwd());
+console.log('  __dirname:', __dirname);
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -47,7 +54,7 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
   console.log(`📍 Environment: ${process.env.NODE_ENV}`);
   console.log(`🌐 CORS enabled for: ${process.env.FRONTEND_URL}`);
-  console.log(`📊 CSV Source: ${process.env.CSV_URL}`);
+  console.log(`📊 CSV Source: ${process.env.MOCK_SERVER_URL}`); // Fixed this line
   console.log(`⏰ Cache TTL: ${process.env.CACHE_TTL} seconds`);
 });
 

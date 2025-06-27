@@ -360,7 +360,86 @@ export default function AnalysisDownloadContent() {
     }));
   };
 
-  const downloadCSV = () => {
+  // const downloadCSV = async () => {
+  //   // Fixed columns that are always present
+  //   const fixedColumns = [
+  //     'Project Code',
+  //     'Site Code',
+  //     'Sampling Date Time',
+  //     'Sample Unique Identifier',
+  //     'Sample Collection Method',
+  //     'Laboratory',
+  //     'Analysis Method',
+  //     'Depth (m)',
+  //     'Comment (max 255 characters)',
+  //   ];
+
+  //   // Get all selected generic names to use as additional column headers
+  //   const selectedColumns: string[] = [];
+
+  //   analysisData.forEach(lab => {
+  //     if (selectedLabs.includes(lab.laboratory)) {
+  //       lab.methods.forEach(method => {
+  //         const methodKey = `${lab.laboratory}-${method.methodName}`;
+  //         if (selectedMethods[lab.laboratory]?.includes(method.methodName)) {
+  //           method.genericNames.forEach(generic => {
+  //             if (selectedGenericNames[methodKey]?.includes(generic.name)) {
+  //               if (!selectedColumns.includes(generic.name)) {
+  //                 selectedColumns.push(generic.name);
+  //               }
+  //             }
+  //           });
+  //         }
+  //       });
+  //     }
+  //   });
+
+  //   // Combine fixed columns with selected columns
+  //   const allColumns = [...fixedColumns, ...selectedColumns];
+
+  //   // Create CSV content with ONLY header row containing fixed + selected columns
+  //   const analysisCSVContent = allColumns.map(col => `"${col}"`).join(',');
+
+  //   try {
+  //     console.log('📦 Downloading ZIP file with all CSV data...');
+
+  //     // Send POST request to backend with analysis CSV content
+  //     const response = await fetch('http://localhost:3001/api/download-zip', {
+  //       method: 'POST',
+  //       headers: {
+  //         'Content-Type': 'application/json',
+  //       },
+  //       body: JSON.stringify({
+  //         analysisCSVContent,
+  //         filename: 'analysis_data.csv',
+  //       }),
+  //     });
+
+  //     if (!response.ok) {
+  //       const errorData = await response.json();
+  //       throw new Error(errorData.details || 'Failed to download ZIP file');
+  //     }
+
+  //     // Get the ZIP file as blob
+  //     const blob = await response.blob();
+
+  //     // Create download link
+  //     const url = window.URL.createObjectURL(blob);
+  //     const a = document.createElement('a');
+  //     a.href = url;
+  //     a.download = 'water_quality_data.zip';
+  //     a.click();
+  //     window.URL.revokeObjectURL(url);
+
+  //     console.log('✅ ZIP file downloaded successfully');
+  //   } catch (err) {
+  //     console.error('❌ Error downloading ZIP file:', err);
+  //     const error = err as Error;
+  //     alert(`Failed to download ZIP file: ${error.message || 'Unknown error'}`);
+  //   }
+  // };
+
+  const downloadCSV = async () => {
     // Fixed columns that are always present
     const fixedColumns = [
       'Project Code',
@@ -374,8 +453,11 @@ export default function AnalysisDownloadContent() {
       'Comment (max 255 characters)',
     ];
 
-    // Get all selected generic names to use as additional column headers
-    const selectedColumns: string[] = [];
+    // Get all selected generic names with their parent method names
+    const selectedColumnsWithParents: Array<{
+      columnName: string;
+      parentMethod: string;
+    }> = [];
 
     analysisData.forEach(lab => {
       if (selectedLabs.includes(lab.laboratory)) {
@@ -384,8 +466,16 @@ export default function AnalysisDownloadContent() {
           if (selectedMethods[lab.laboratory]?.includes(method.methodName)) {
             method.genericNames.forEach(generic => {
               if (selectedGenericNames[methodKey]?.includes(generic.name)) {
-                if (!selectedColumns.includes(generic.name)) {
-                  selectedColumns.push(generic.name);
+                // Check if this column name is already added
+                if (
+                  !selectedColumnsWithParents.some(
+                    col => col.columnName === generic.name,
+                  )
+                ) {
+                  selectedColumnsWithParents.push({
+                    columnName: generic.name,
+                    parentMethod: method.methodName,
+                  });
                 }
               }
             });
@@ -394,19 +484,71 @@ export default function AnalysisDownloadContent() {
       }
     });
 
-    // Combine fixed columns with selected columns
-    const allColumns = [...fixedColumns, ...selectedColumns];
+    // Build first header row (parent headers)
+    const firstHeaderRow = [
+      // "static" for all fixed columns
+      ...fixedColumns.map(() => 'static'),
+      // Parent method names for selected columns
+      ...selectedColumnsWithParents.map(col => col.parentMethod),
+    ];
 
-    // Create CSV with ONLY header row containing fixed + selected columns
-    const csvContent = allColumns.map(col => `"${col}"`).join(',');
+    // Build second header row (column headers)
+    const secondHeaderRow = [
+      // Fixed column names
+      ...fixedColumns,
+      // Selected parameter names
+      ...selectedColumnsWithParents.map(col => col.columnName),
+    ];
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'analysis_data.csv';
-    a.click();
-    window.URL.revokeObjectURL(url);
+    // Create CSV content with double headers
+    const firstHeaderCSV = firstHeaderRow.map(col => `"${col}"`).join(',');
+    const secondHeaderCSV = secondHeaderRow.map(col => `"${col}"`).join(',');
+    const analysisCSVContent = `${firstHeaderCSV}\n${secondHeaderCSV}`;
+
+    try {
+      console.log('📦 Downloading ZIP file with all CSV data...');
+      console.log(
+        '🔍 DEBUG - Selected columns with parents:',
+        selectedColumnsWithParents,
+      );
+      console.log('🔍 DEBUG - First header row:', firstHeaderRow);
+      console.log('🔍 DEBUG - Second header row:', secondHeaderRow);
+      console.log('🔍 DEBUG - Analysis CSV content:', analysisCSVContent);
+
+      // Send POST request to backend with analysis CSV content
+      const response = await fetch('http://localhost:3001/api/download-zip', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          analysisCSVContent,
+          filename: 'analysis_data.csv',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.details || 'Failed to download ZIP file');
+      }
+
+      // Get the ZIP file as blob
+      const blob = await response.blob();
+
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'water_quality_data.zip';
+      a.click();
+      window.URL.revokeObjectURL(url);
+
+      console.log('✅ ZIP file downloaded successfully');
+    } catch (err) {
+      console.error('❌ Error downloading ZIP file:', err);
+      const error = err as Error;
+      alert(`Failed to download ZIP file: ${error.message || 'Unknown error'}`);
+    }
   };
 
   const getSelectedDataCount = () => {
@@ -844,7 +986,7 @@ export default function AnalysisDownloadContent() {
               e.currentTarget.style.background = '#6bbe27';
             }}
           >
-            Download CSV
+            Download ZIP Package
           </button>
         </div>
       </div>
