@@ -175,24 +175,155 @@ router.get('/monitoring-sites-csv', async (req, res) => {
 });
 
 // New endpoint: Download ZIP with all CSVs + custom analysis CSV
+// router.post('/download-zip', async (req, res) => {
+//   const startTime = Date.now();
+
+//   try {
+//     console.log('📦 Creating ZIP file with all CSVs...');
+
+//     // Get custom analysis CSV content from request body
+//     const { analysisCSVContent, filename = 'analysis_data.csv' } = req.body;
+
+//     if (!analysisCSVContent) {
+//       return res.status(400).json({
+//         error: 'Missing analysis CSV content',
+//         details: 'analysisCSVContent is required in request body',
+//       });
+//     }
+
+//     // Fetch all three CSV files concurrently
+//     console.log('🔄 Fetching all CSV files...');
+//     const csvPromises = Object.entries(CSV_FILES).map(async ([key, config]) => {
+//       try {
+//         const result = await fetchCSVWithCache(config);
+//         return {
+//           filename: config.filename,
+//           content: result.data,
+//           source: result.source,
+//         };
+//       } catch (error) {
+//         console.error(`Failed to fetch ${config.filename}:`, error.message);
+//         return {
+//           filename: config.filename,
+//           content: `Error: Failed to fetch ${config.filename}\n${error.message}`,
+//           source: 'error',
+//         };
+//       }
+//     });
+
+//     const csvFiles = await Promise.all(csvPromises);
+
+//     // Set response headers for ZIP download
+//     res.set({
+//       'Content-Type': 'application/zip',
+//       'Content-Disposition': 'attachment; filename="water_quality_data.zip"',
+//       'X-Response-Time': `${Date.now() - startTime}ms`,
+//     });
+
+//     // Create ZIP archive
+//     const archive = archiver('zip', {
+//       zlib: { level: 9 }, // Maximum compression
+//     });
+
+//     // Handle archive errors
+//     archive.on('error', err => {
+//       console.error('📦 Archive error:', err);
+//       if (!res.headersSent) {
+//         res.status(500).json({
+//           error: 'Failed to create ZIP archive',
+//           details: err.message,
+//         });
+//       }
+//     });
+
+//     // Pipe archive to response
+//     archive.pipe(res);
+
+//     // Add the custom analysis CSV
+//     archive.append(analysisCSVContent, { name: filename });
+//     console.log(`📄 Added custom analysis CSV: ${filename}`);
+
+//     // Add all fetched CSV files
+//     csvFiles.forEach(file => {
+//       archive.append(file.content, { name: file.filename });
+//       console.log(`📄 Added ${file.filename} (source: ${file.source})`);
+//     });
+
+//     // Add a README file with metadata
+//     const readmeContent = `Water Quality Data Export
+// Generated: ${new Date().toISOString()}
+
+// Files included:
+// 1. ${filename} - Custom analysis data based on user selections
+// 2. lab_reference_info.csv - Laboratory reference information
+// 3. sample_data.csv - Sample data
+// 4. monitoring_sites.csv - Monitoring sites information
+
+// Total files: 4
+// Archive created by: Water Quality Portal
+// `;
+
+//     archive.append(readmeContent, { name: 'README.txt' });
+//     console.log('📄 Added README.txt');
+
+//     // Finalize the archive
+//     await archive.finalize();
+
+//     console.log(
+//       `✅ ZIP file created successfully in ${Date.now() - startTime}ms`,
+//     );
+//   } catch (error) {
+//     console.error('❌ Error creating ZIP:', error);
+
+//     if (!res.headersSent) {
+//       res.status(500).json({
+//         error: 'Failed to create ZIP file',
+//         details: error.message,
+//         timestamp: new Date().toISOString(),
+//       });
+//     }
+//   }
+// });
+
+// Updated backend route in routes/csv.js
 router.post('/download-zip', async (req, res) => {
   const startTime = Date.now();
 
   try {
-    console.log('📦 Creating ZIP file with all CSVs...');
+    console.log('📦 Creating ZIP file with multiple laboratory CSV files...');
 
-    // Get custom analysis CSV content from request body
-    const { analysisCSVContent, filename = 'analysis_data.csv' } = req.body;
+    // Get laboratory files from request body
+    const { laboratoryFiles } = req.body;
 
-    if (!analysisCSVContent) {
+    if (
+      !laboratoryFiles ||
+      !Array.isArray(laboratoryFiles) ||
+      laboratoryFiles.length === 0
+    ) {
       return res.status(400).json({
-        error: 'Missing analysis CSV content',
-        details: 'analysisCSVContent is required in request body',
+        error: 'Missing laboratory files',
+        details: 'laboratoryFiles array is required in request body',
       });
     }
 
-    // Fetch all three CSV files concurrently
-    console.log('🔄 Fetching all CSV files...');
+    console.log(
+      `📊 Received ${laboratoryFiles.length} laboratory files:`,
+      laboratoryFiles.map(file => file.filename),
+    );
+
+    // Validate laboratory files structure
+    for (const labFile of laboratoryFiles) {
+      if (!labFile.filename || !labFile.content) {
+        return res.status(400).json({
+          error: 'Invalid laboratory file structure',
+          details:
+            'Each laboratory file must have filename and content properties',
+        });
+      }
+    }
+
+    // Fetch all three CSV files concurrently (dummy files)
+    console.log('🔄 Fetching dummy CSV files...');
     const csvPromises = Object.entries(CSV_FILES).map(async ([key, config]) => {
       try {
         const result = await fetchCSVWithCache(config);
@@ -211,7 +342,7 @@ router.post('/download-zip', async (req, res) => {
       }
     });
 
-    const csvFiles = await Promise.all(csvPromises);
+    const dummyCSVFiles = await Promise.all(csvPromises);
 
     // Set response headers for ZIP download
     res.set({
@@ -239,27 +370,51 @@ router.post('/download-zip', async (req, res) => {
     // Pipe archive to response
     archive.pipe(res);
 
-    // Add the custom analysis CSV
-    archive.append(analysisCSVContent, { name: filename });
-    console.log(`📄 Added custom analysis CSV: ${filename}`);
+    // Add all laboratory CSV files
+    laboratoryFiles.forEach(labFile => {
+      archive.append(labFile.content, { name: labFile.filename });
+      console.log(`📄 Added laboratory file: ${labFile.filename}`);
+    });
 
-    // Add all fetched CSV files
-    csvFiles.forEach(file => {
+    // Add all fetched dummy CSV files
+    dummyCSVFiles.forEach(file => {
       archive.append(file.content, { name: file.filename });
-      console.log(`📄 Added ${file.filename} (source: ${file.source})`);
+      console.log(
+        `📄 Added dummy file: ${file.filename} (source: ${file.source})`,
+      );
     });
 
     // Add a README file with metadata
+    const labFilesList = laboratoryFiles
+      .map(
+        (file, index) =>
+          `${index + 1}. ${file.filename} - Laboratory-specific analysis data`,
+      )
+      .join('\n');
+
     const readmeContent = `Water Quality Data Export
 Generated: ${new Date().toISOString()}
 
 Files included:
-1. ${filename} - Custom analysis data based on user selections
-2. lab_reference_info.csv - Laboratory reference information
-3. sample_data.csv - Sample data
-4. monitoring_sites.csv - Monitoring sites information
 
-Total files: 4
+Laboratory Analysis Files:
+${labFilesList}
+
+Reference Data Files:
+${
+  laboratoryFiles.length + 1
+}. lab_reference_info.csv - Laboratory reference information
+${laboratoryFiles.length + 2}. sample_data.csv - Sample data
+${
+  laboratoryFiles.length + 3
+}. monitoring_sites.csv - Monitoring sites information
+
+Additional Files:
+${laboratoryFiles.length + 4}. README.txt - This file
+
+Total files: ${laboratoryFiles.length + 4}
+Laboratory files: ${laboratoryFiles.length}
+Reference files: 3
 Archive created by: Water Quality Portal
 `;
 
@@ -272,6 +427,7 @@ Archive created by: Water Quality Portal
     console.log(
       `✅ ZIP file created successfully in ${Date.now() - startTime}ms`,
     );
+    console.log(`📊 Total files in ZIP: ${laboratoryFiles.length + 4}`);
   } catch (error) {
     console.error('❌ Error creating ZIP:', error);
 
