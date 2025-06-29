@@ -481,6 +481,86 @@ export default function AnalysisDownloadContent() {
     }));
   };
 
+  // Download sample data CSV
+  const downloadSampleData = async () => {
+    try {
+      console.log('🔽 Starting sample data download...');
+
+      const response = await fetch(
+        'http://localhost:3001/api/sample-data-csv?t=' + Date.now(),
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const csvContent = await response.text();
+
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'sample_data.csv';
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Sample data downloaded successfully');
+      alert('Sample data CSV downloaded successfully!');
+    } catch (error) {
+      console.error('❌ Sample data download failed:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to download sample data: ${errorMessage}`);
+    }
+  };
+
+  // Download monitoring sites CSV
+  const downloadMonitoringSites = async () => {
+    try {
+      console.log('🔽 Starting monitoring sites download...');
+
+      const response = await fetch(
+        'http://localhost:3001/api/monitoring-sites-csv?t=' + Date.now(),
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const csvContent = await response.text();
+
+      // Create and download the file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'monitoring_sites.csv';
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Monitoring sites downloaded successfully');
+      alert('Monitoring sites CSV downloaded successfully!');
+    } catch (error) {
+      console.error('❌ Monitoring sites download failed:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to download monitoring sites: ${errorMessage}`);
+    }
+  };
+
   // Main download function - COMPLETELY REPLACED
   const downloadCSV = async () => {
     // Helper function to validate and clean incomplete selections
@@ -1644,6 +1724,177 @@ export default function AnalysisDownloadContent() {
         </div>
       </div>
 
+      {/* Additional CSV Downloads Section */}
+      <div
+        style={{
+          borderTop: '2px solid #e0e0e0',
+          paddingTop: '24px',
+          marginBottom: '32px',
+        }}
+      >
+        <h2
+          style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#05325f',
+            marginBottom: '16px',
+          }}
+        >
+          Additional Data Downloads
+        </h2>
+        <p
+          style={{
+            fontSize: '14px',
+            color: '#666',
+            marginBottom: '20px',
+            lineHeight: 1.5,
+          }}
+        >
+          Download additional CSV files containing sample data and monitoring
+          site information.
+        </p>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gap: '16px',
+          }}
+        >
+          {/* Sample Data Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>📊</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Sample Data
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Water quality measurements and analytical results from laboratory
+              analyses.
+            </p>
+            <button
+              onClick={downloadSampleData}
+              style={{
+                background: '#1976d2',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#1565c0';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#1976d2';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              Download sample_data.csv
+            </button>
+          </div>
+
+          {/* Monitoring Sites Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>📍</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Monitoring Sites
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Geographic locations and metadata for water quality monitoring
+              sites.
+            </p>
+            <button
+              onClick={downloadMonitoringSites}
+              style={{
+                background: '#388e3c',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.background = '#2e7d32';
+                e.currentTarget.style.transform = 'translateY(-2px)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.background = '#388e3c';
+                e.currentTarget.style.transform = 'translateY(0)';
+              }}
+            >
+              Download monitoring_sites.csv
+            </button>
+          </div>
+        </div>
+      </div>
+
       {/* Download Section */}
       <div
         style={{
@@ -1651,6 +1902,17 @@ export default function AnalysisDownloadContent() {
           paddingTop: '24px',
         }}
       >
+        <h2
+          style={{
+            fontSize: '24px',
+            fontWeight: 'bold',
+            color: '#05325f',
+            marginBottom: '16px',
+          }}
+        >
+          Custom Analysis Download
+        </h2>
+
         <div
           style={{
             display: 'flex',
