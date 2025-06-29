@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { useState, useEffect, useMemo } from 'react';
+import JSZip from 'jszip';
 
 interface CSVRow {
   laboratory: string;
@@ -7,40 +8,75 @@ interface CSVRow {
   start_date: string;
   end_date: string;
   com_lab_analysis_method: string;
-  subvariable_number: string;
+  primary_analyte_group: string;
   generic_name: string;
   unit: string;
   lor: string;
   lor_unit: string;
-  inhouse_lab_flag: string;
+  analysis_location: string;
 }
 
-interface GenericNameItem {
-  name: string;
+interface ParameterItem {
+  genericName: string;
+  unit: string;
 }
 
 interface MethodItem {
   methodName: string;
-  genericNames: GenericNameItem[];
+  parameters: ParameterItem[];
+}
+
+interface AnalyteGroupItem {
+  groupName: string;
+  methods: MethodItem[];
 }
 
 interface LaboratoryItem {
   laboratory: string;
-  methods: MethodItem[];
+  analyteGroups: AnalyteGroupItem[];
+}
+
+interface AnalysisLocationItem {
+  analysisLocation: string;
+  laboratories: LaboratoryItem[];
+}
+
+interface ValidationResult {
+  isValid: boolean;
+  removedSelections: string[];
+  completeSelections: string[];
 }
 
 export default function AnalysisDownloadContent() {
   const [csvData, setCsvData] = useState<CSVRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedLabs, setSelectedLabs] = useState<string[]>([]);
+  const [selectedEndDate, setSelectedEndDate] = useState<string>('');
+
+  // 4-layer selection states
+  const [selectedAnalysisLocations, setSelectedAnalysisLocations] = useState<
+    string[]
+  >([]);
+  const [selectedLaboratories, setSelectedLaboratories] = useState<{
+    [key: string]: string[];
+  }>({});
+  const [selectedAnalyteGroups, setSelectedAnalyteGroups] = useState<{
+    [key: string]: string[];
+  }>({});
   const [selectedMethods, setSelectedMethods] = useState<{
     [key: string]: string[];
   }>({});
-  const [selectedGenericNames, setSelectedGenericNames] = useState<{
+
+  // Expansion states
+  const [expandedAnalysisLocations, setExpandedAnalysisLocations] = useState<
+    string[]
+  >([]);
+  const [expandedLaboratories, setExpandedLaboratories] = useState<{
     [key: string]: string[];
   }>({});
-  const [expandedLabs, setExpandedLabs] = useState<string[]>([]);
+  const [expandedAnalyteGroups, setExpandedAnalyteGroups] = useState<{
+    [key: string]: string[];
+  }>({});
   const [expandedMethods, setExpandedMethods] = useState<{
     [key: string]: string[];
   }>({});
@@ -135,19 +171,19 @@ export default function AnalysisDownloadContent() {
         console.log('  - Headers:', headers);
         console.log('  - Header count:', headers.length);
 
-        // Expected headers based on your CSV structure
+        // Updated expected headers for new CSV structure
         const expectedHeaders = [
           'laboratory',
           'lab_analysis_method_short_name',
           'start_date',
           'end_date',
           'com_lab_analysis_method',
-          'subvariable_number',
+          'primary_analyte_group',
           'generic_name',
           'unit',
           'lor',
           'lor_unit',
-          'inhouse_lab_flag',
+          'analysis_location',
         ];
         const headersMatch = expectedHeaders.every(expected =>
           headers.includes(expected),
@@ -184,27 +220,29 @@ export default function AnalysisDownloadContent() {
             }
             values.push(current.trim()); // Add the last value
 
-            if (values.length >= 7) {
-              // Minimum required columns
+            if (values.length >= 11) {
+              // Updated minimum required columns for new structure
               const row: CSVRow = {
                 laboratory: values[0] || '',
                 lab_analysis_method_short_name: values[1] || '',
                 start_date: values[2] || '',
                 end_date: values[3] || '',
                 com_lab_analysis_method: values[4] || '',
-                subvariable_number: values[5] || '',
+                primary_analyte_group: values[5] || '',
                 generic_name: values[6] || '',
                 unit: values[7] || '',
                 lor: values[8] || '',
                 lor_unit: values[9] || '',
-                inhouse_lab_flag: values[10] || '',
+                analysis_location: values[10] || '',
               };
 
-              // Only add rows with valid required data
+              // Only add rows with valid required data for new structure
               if (
                 row.laboratory &&
                 row.lab_analysis_method_short_name &&
-                row.generic_name
+                row.primary_analyte_group &&
+                row.generic_name &&
+                row.analysis_location
               ) {
                 data.push(row);
                 successfulRows++;
@@ -231,11 +269,19 @@ export default function AnalysisDownloadContent() {
         console.log('  - Sample first 3 rows:');
         data.slice(0, 3).forEach((row, index) => {
           console.log(`    Row ${index + 1}:`, {
+            analysis_location: row.analysis_location,
             laboratory: row.laboratory,
+            primary_analyte_group: row.primary_analyte_group,
             method: row.lab_analysis_method_short_name,
             generic_name: row.generic_name,
           });
         });
+
+        // Check for unique analysis locations (new hierarchy level)
+        const uniqueLocations = Array.from(
+          new Set(data.map(row => row.analysis_location)),
+        );
+        console.log('📍 Unique analysis locations found:', uniqueLocations);
 
         // Check for unique laboratories
         const uniqueLabs = Array.from(new Set(data.map(row => row.laboratory)));
@@ -260,7 +306,9 @@ export default function AnalysisDownloadContent() {
           '1. Verify file exists at: public/water-data-portal/lab_reference_info.csv\n';
         errorMessage += '2. Restart your development server\n';
         errorMessage += '3. Check browser console for detailed logs\n';
-        errorMessage += '4. Ensure file is saved as UTF-8 encoding';
+        errorMessage += '4. Ensure file is saved as UTF-8 encoding\n';
+        errorMessage +=
+          '5. Verify new CSV structure with analysis_location column';
 
         setError(errorMessage);
       } finally {
@@ -271,444 +319,711 @@ export default function AnalysisDownloadContent() {
     fetchCSVData();
   }, []);
 
-  // Process CSV data into hierarchical structure
-  const analysisData = useMemo((): LaboratoryItem[] => {
-    if (!csvData.length) return [];
+  // Filter data based on end date selection
+  const filteredCsvData = useMemo(() => {
+    if (!selectedEndDate) return csvData;
 
-    const labMap = new Map<string, Map<string, Set<string>>>();
+    const selectedDate = new Date(selectedEndDate);
+    const fiveYearsAgo = new Date(selectedDate);
+    fiveYearsAgo.setFullYear(selectedDate.getFullYear() - 5);
 
-    // Group data by laboratory -> method -> generic_name
-    csvData.forEach(row => {
+    return csvData.filter(row => {
+      if (!row.end_date) {
+        // Use current date as default for null end_date
+        const currentDate = new Date();
+        return currentDate >= fiveYearsAgo;
+      }
+
+      const endDate = new Date(row.end_date);
+      return endDate >= fiveYearsAgo;
+    });
+  }, [csvData, selectedEndDate]);
+
+  // Build 4-layer hierarchical structure
+  const analysisData = useMemo((): AnalysisLocationItem[] => {
+    if (!filteredCsvData.length) return [];
+
+    const locationMap = new Map<
+      string,
+      Map<string, Map<string, Map<string, Set<string>>>>
+    >();
+
+    // Group data by analysis_location -> laboratory -> primary_analyte_group -> method -> parameters
+    filteredCsvData.forEach(row => {
       if (
+        !row.analysis_location ||
         !row.laboratory ||
-        !row.lab_analysis_method_short_name ||
-        !row.generic_name
+        !row.primary_analyte_group ||
+        !row.lab_analysis_method_short_name
       )
         return;
 
+      if (!locationMap.has(row.analysis_location)) {
+        locationMap.set(row.analysis_location, new Map());
+      }
+
+      const labMap = locationMap.get(row.analysis_location)!;
       if (!labMap.has(row.laboratory)) {
         labMap.set(row.laboratory, new Map());
       }
 
-      const methodMap = labMap.get(row.laboratory)!;
+      const groupMap = labMap.get(row.laboratory)!;
+      if (!groupMap.has(row.primary_analyte_group)) {
+        groupMap.set(row.primary_analyte_group, new Map());
+      }
+
+      const methodMap = groupMap.get(row.primary_analyte_group)!;
       if (!methodMap.has(row.lab_analysis_method_short_name)) {
         methodMap.set(row.lab_analysis_method_short_name, new Set());
       }
 
-      methodMap.get(row.lab_analysis_method_short_name)!.add(row.generic_name);
+      // Use composite key for deduplication: genericName|unit
+      const compositeKey = `${row.generic_name}|${row.unit}`;
+      methodMap.get(row.lab_analysis_method_short_name)!.add(compositeKey);
     });
 
     // Convert to array structure
-    const result: LaboratoryItem[] = [];
-    labMap.forEach((methodMap, laboratory) => {
-      const methods: MethodItem[] = [];
-      methodMap.forEach((genericNameSet, methodName) => {
-        const genericNames: GenericNameItem[] = Array.from(genericNameSet).map(
-          name => ({
-            name,
-          }),
-        );
-        methods.push({ methodName, genericNames });
+    const result: AnalysisLocationItem[] = [];
+    locationMap.forEach((labMap, analysisLocation) => {
+      const laboratories: LaboratoryItem[] = [];
+
+      labMap.forEach((groupMap, laboratory) => {
+        const analyteGroups: AnalyteGroupItem[] = [];
+
+        groupMap.forEach((methodMap, groupName) => {
+          const methods: MethodItem[] = [];
+
+          methodMap.forEach((parameterSet, methodName) => {
+            const parameters: ParameterItem[] = Array.from(parameterSet).map(
+              compositeKey => {
+                const [genericName, unit] = compositeKey.split('|');
+                return { genericName, unit };
+              },
+            );
+            methods.push({ methodName, parameters });
+          });
+
+          analyteGroups.push({ groupName, methods });
+        });
+
+        laboratories.push({ laboratory, analyteGroups });
       });
-      result.push({ laboratory, methods });
+
+      result.push({ analysisLocation, laboratories });
     });
 
     return result;
-  }, [csvData]);
+  }, [filteredCsvData]);
 
-  const handleLabSelection = (labName: string) => {
-    setSelectedLabs(prev =>
-      prev.includes(labName)
-        ? prev.filter(lab => lab !== labName)
-        : [...prev, labName],
+  // Selection handlers
+  const handleAnalysisLocationSelection = (location: string) => {
+    setSelectedAnalysisLocations(prev =>
+      prev.includes(location)
+        ? prev.filter(loc => loc !== location)
+        : [...prev, location],
     );
 
-    // Toggle expansion
-    setExpandedLabs(prev =>
-      prev.includes(labName)
-        ? prev.filter(lab => lab !== labName)
-        : [...prev, labName],
+    setExpandedAnalysisLocations(prev =>
+      prev.includes(location)
+        ? prev.filter(loc => loc !== location)
+        : [...prev, location],
     );
   };
 
-  const handleMethodSelection = (labName: string, methodName: string) => {
+  const handleLaboratorySelection = (location: string, laboratory: string) => {
+    setSelectedLaboratories(prev => ({
+      ...prev,
+      [location]: prev[location]?.includes(laboratory)
+        ? prev[location].filter(lab => lab !== laboratory)
+        : [...(prev[location] || []), laboratory],
+    }));
+
+    setExpandedLaboratories(prev => ({
+      ...prev,
+      [location]: prev[location]?.includes(laboratory)
+        ? prev[location].filter(lab => lab !== laboratory)
+        : [...(prev[location] || []), laboratory],
+    }));
+  };
+
+  const handleAnalyteGroupSelection = (
+    locationLabKey: string,
+    groupName: string,
+  ) => {
+    setSelectedAnalyteGroups(prev => ({
+      ...prev,
+      [locationLabKey]: prev[locationLabKey]?.includes(groupName)
+        ? prev[locationLabKey].filter(group => group !== groupName)
+        : [...(prev[locationLabKey] || []), groupName],
+    }));
+
+    setExpandedAnalyteGroups(prev => ({
+      ...prev,
+      [locationLabKey]: prev[locationLabKey]?.includes(groupName)
+        ? prev[locationLabKey].filter(group => group !== groupName)
+        : [...(prev[locationLabKey] || []), groupName],
+    }));
+  };
+
+  const handleMethodSelection = (groupKey: string, methodName: string) => {
     setSelectedMethods(prev => ({
       ...prev,
-      [labName]: prev[labName]?.includes(methodName)
-        ? prev[labName].filter(method => method !== methodName)
-        : [...(prev[labName] || []), methodName],
+      [groupKey]: prev[groupKey]?.includes(methodName)
+        ? prev[groupKey].filter(method => method !== methodName)
+        : [...(prev[groupKey] || []), methodName],
     }));
 
-    // Toggle method expansion
     setExpandedMethods(prev => ({
       ...prev,
-      [labName]: prev[labName]?.includes(methodName)
-        ? prev[labName].filter(method => method !== methodName)
-        : [...(prev[labName] || []), methodName],
+      [groupKey]: prev[groupKey]?.includes(methodName)
+        ? prev[groupKey].filter(method => method !== methodName)
+        : [...(prev[groupKey] || []), methodName],
     }));
   };
 
-  const handleGenericNameSelection = (
-    methodKey: string,
-    genericName: string,
-  ) => {
-    setSelectedGenericNames(prev => ({
-      ...prev,
-      [methodKey]: prev[methodKey]?.includes(genericName)
-        ? prev[methodKey].filter(name => name !== genericName)
-        : [...(prev[methodKey] || []), genericName],
-    }));
-  };
-
-  // const downloadCSV = async () => {
-  //   // Fixed columns that are always present
-  //   const fixedColumns = [
-  //     'Project Code',
-  //     'Site Code',
-  //     'Sampling Date Time',
-  //     'Sample Unique Identifier',
-  //     'Sample Collection Method',
-  //     'Laboratory',
-  //     'Analysis Method',
-  //     'Depth (m)',
-  //     'Comment (max 255 characters)',
-  //   ];
-
-  //   // Get all selected generic names to use as additional column headers
-  //   const selectedColumns: string[] = [];
-
-  //   analysisData.forEach(lab => {
-  //     if (selectedLabs.includes(lab.laboratory)) {
-  //       lab.methods.forEach(method => {
-  //         const methodKey = `${lab.laboratory}-${method.methodName}`;
-  //         if (selectedMethods[lab.laboratory]?.includes(method.methodName)) {
-  //           method.genericNames.forEach(generic => {
-  //             if (selectedGenericNames[methodKey]?.includes(generic.name)) {
-  //               if (!selectedColumns.includes(generic.name)) {
-  //                 selectedColumns.push(generic.name);
-  //               }
-  //             }
-  //           });
-  //         }
-  //       });
-  //     }
-  //   });
-
-  //   // Combine fixed columns with selected columns
-  //   const allColumns = [...fixedColumns, ...selectedColumns];
-
-  //   // Create CSV content with ONLY header row containing fixed + selected columns
-  //   const analysisCSVContent = allColumns.map(col => `"${col}"`).join(',');
-
-  //   try {
-  //     console.log('📦 Downloading ZIP file with all CSV data...');
-
-  //     // Send POST request to backend with analysis CSV content
-  //     const response = await fetch('http://localhost:3001/api/download-zip', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         analysisCSVContent,
-  //         filename: 'analysis_data.csv',
-  //       }),
-  //     });
-
-  //     if (!response.ok) {
-  //       const errorData = await response.json();
-  //       throw new Error(errorData.details || 'Failed to download ZIP file');
-  //     }
-
-  //     // Get the ZIP file as blob
-  //     const blob = await response.blob();
-
-  //     // Create download link
-  //     const url = window.URL.createObjectURL(blob);
-  //     const a = document.createElement('a');
-  //     a.href = url;
-  //     a.download = 'water_quality_data.zip';
-  //     a.click();
-  //     window.URL.revokeObjectURL(url);
-
-  //     console.log('✅ ZIP file downloaded successfully');
-  //   } catch (err) {
-  //     console.error('❌ Error downloading ZIP file:', err);
-  //     const error = err as Error;
-  //     alert(`Failed to download ZIP file: ${error.message || 'Unknown error'}`);
-  //   }
-  // };
-
-  // const downloadCSV = async () => {
-  //   // Fixed columns that are always present
-  //   const fixedColumns = [
-  //     'Project Code',
-  //     'Site Code',
-  //     'Sampling Date Time',
-  //     'Sample Unique Identifier',
-  //     'Sample Collection Method',
-  //     'Laboratory',
-  //     'Analysis Method',
-  //     'Depth (m)',
-  //     'Comment (max 255 characters)',
-  //   ];
-
-  //   // Get all selected generic names with their parent method names
-  //   const selectedColumnsWithParents: Array<{
-  //     columnName: string;
-  //     parentMethod: string;
-  //   }> = [];
-
-  //   analysisData.forEach(lab => {
-  //     if (selectedLabs.includes(lab.laboratory)) {
-  //       lab.methods.forEach(method => {
-  //         const methodKey = `${lab.laboratory}-${method.methodName}`;
-  //         if (selectedMethods[lab.laboratory]?.includes(method.methodName)) {
-  //           method.genericNames.forEach(generic => {
-  //             if (selectedGenericNames[methodKey]?.includes(generic.name)) {
-  //               // Check if this column name is already added
-  //               if (
-  //                 !selectedColumnsWithParents.some(
-  //                   col => col.columnName === generic.name,
-  //                 )
-  //               ) {
-  //                 selectedColumnsWithParents.push({
-  //                   columnName: generic.name,
-  //                   parentMethod: method.methodName,
-  //                 });
-  //               }
-  //             }
-  //           });
-  //         }
-  //       });
-  //     }
-  //   });
-
-  //   // Build first header row (parent headers)
-  //   const firstHeaderRow = [
-  //     // "static" for all fixed columns
-  //     ...fixedColumns.map(() => 'static'),
-  //     // Parent method names for selected columns
-  //     ...selectedColumnsWithParents.map(col => col.parentMethod),
-  //   ];
-
-  //   // Build second header row (column headers)
-  //   const secondHeaderRow = [
-  //     // Fixed column names
-  //     ...fixedColumns,
-  //     // Selected parameter names
-  //     ...selectedColumnsWithParents.map(col => col.columnName),
-  //   ];
-
-  //   // Create CSV content with double headers
-  //   const firstHeaderCSV = firstHeaderRow.map(col => `"${col}"`).join(',');
-  //   const secondHeaderCSV = secondHeaderRow.map(col => `"${col}"`).join(',');
-  //   const analysisCSVContent = `${firstHeaderCSV}\n${secondHeaderCSV}`;
-
-  //   try {
-  //     console.log('📦 Downloading ZIP file with all CSV data...');
-  //     console.log(
-  //       '🔍 DEBUG - Selected columns with parents:',
-  //       selectedColumnsWithParents,
-  //     );
-  //     console.log('🔍 DEBUG - First header row:', firstHeaderRow);
-  //     console.log('🔍 DEBUG - Second header row:', secondHeaderRow);
-  //     console.log('🔍 DEBUG - Analysis CSV content:', analysisCSVContent);
-
-  //     // Send POST request to backend with analysis CSV content
-  //     const response = await fetch('http://localhost:3001/api/download-zip', {
-  //       method: 'POST',
-  //       headers: {
-  //         'Content-Type': 'application/json',
-  //       },
-  //       body: JSON.stringify({
-  //         analysisCSVContent,
-  //         filename: 'analysis_data.csv',
-  //       }),
-  //     });
-
-  //     if (!response.ok) {
-  //       const errorData = await response.json();
-  //       throw new Error(errorData.details || 'Failed to download ZIP file');
-  //     }
-
-  //     // Get the ZIP file as blob
-  //     const blob = await response.blob();
-
-  //     // Create download link
-  //     const url = window.URL.createObjectURL(blob);
-  //     const a = document.createElement('a');
-  //     a.href = url;
-  //     a.download = 'water_quality_data.zip';
-  //     a.click();
-  //     window.URL.revokeObjectURL(url);
-
-  //     console.log('✅ ZIP file downloaded successfully');
-  //   } catch (err) {
-  //     console.error('❌ Error downloading ZIP file:', err);
-  //     const error = err as Error;
-  //     alert(`Failed to download ZIP file: ${error.message || 'Unknown error'}`);
-  //   }
-  // };
-
-  // Updated downloadCSV function for multiple laboratory files
+  // Main download function - COMPLETELY REPLACED
   const downloadCSV = async () => {
-    // Fixed columns that are always present
-    const fixedColumns = [
-      'Project Code',
-      'Site Code',
-      'Sampling Date Time',
-      'Sample Unique Identifier',
-      'Sample Collection Method',
-      'Laboratory',
-      'Analysis Method',
-      'Depth (m)',
-      'Comment (max 255 characters)',
-    ];
+    // Helper function to validate and clean incomplete selections
+    const validateAndCleanSelections = (
+      selectedAnalysisLocations: string[],
+      selectedLaboratories: { [key: string]: string[] },
+      selectedAnalyteGroups: { [key: string]: string[] },
+      selectedMethods: { [key: string]: string[] },
+      analysisData: AnalysisLocationItem[],
+    ): ValidationResult => {
+      const removedSelections: string[] = [];
+      const completeSelections: string[] = [];
 
-    // Build separate CSV files for each selected laboratory
-    const laboratoryFiles: Array<{
-      filename: string;
-      content: string;
-    }> = [];
+      // Clean up incomplete selections using bottom-up cascade
+      selectedAnalysisLocations.filter(location => {
+        const locationData = analysisData.find(
+          item => item.analysisLocation === location,
+        );
+        if (!locationData) {
+          removedSelections.push(
+            `Analysis Location: ${location} (not found in data)`,
+          );
+          return false;
+        }
 
-    // Loop through each selected laboratory
-    selectedLabs.forEach(labName => {
-      console.log(`🏢 Processing laboratory: ${labName}`);
+        let hasValidLaboratory = false;
 
-      // Find the laboratory data
-      const labData = analysisData.find(lab => lab.laboratory === labName);
-      if (!labData) {
-        console.warn(`⚠️ Laboratory data not found for: ${labName}`);
-        return;
-      }
+        // Check laboratories for this location
+        const selectedLabs = selectedLaboratories[location] || [];
+        selectedLabs.filter(laboratory => {
+          const labData = locationData.laboratories.find(
+            lab => lab.laboratory === laboratory,
+          );
+          if (!labData) {
+            removedSelections.push(
+              `Laboratory: ${laboratory} in ${location} (not found)`,
+            );
+            return false;
+          }
 
-      // Get selected parameters for this specific laboratory
-      const labSelectedColumnsWithParents: Array<{
-        columnName: string;
-        parentMethod: string;
+          let hasValidGroup = false;
+
+          // Check analyte groups for this lab
+          const locationLabKey = `${location}-${laboratory}`;
+          const selectedGroups = selectedAnalyteGroups[locationLabKey] || [];
+          selectedGroups.filter(groupName => {
+            const groupData = labData.analyteGroups.find(
+              group => group.groupName === groupName,
+            );
+            if (!groupData) {
+              removedSelections.push(
+                `Analyte Group: ${groupName} in ${laboratory} (not found)`,
+              );
+              return false;
+            }
+
+            let hasValidMethod = false;
+
+            // Check methods for this group
+            const groupKey = `${locationLabKey}-${groupName}`;
+            const selectedMethodsList = selectedMethods[groupKey] || [];
+            const validMethods = selectedMethodsList.filter(methodName => {
+              const methodData = groupData.methods.find(
+                method => method.methodName === methodName,
+              );
+              if (!methodData) {
+                removedSelections.push(
+                  `Method: ${methodName} in ${groupName} (not found)`,
+                );
+                return false;
+              }
+              return true;
+            });
+
+            if (validMethods.length > 0) {
+              hasValidMethod = true;
+              validMethods.forEach(method => {
+                completeSelections.push(
+                  `${location} → ${laboratory} → ${groupName} → ${method}`,
+                );
+              });
+            } else {
+              removedSelections.push(
+                `Analyte Group: ${groupName} (no valid methods)`,
+              );
+            }
+
+            return hasValidMethod;
+          });
+
+          if (selectedGroups.length > 0) {
+            hasValidGroup = true;
+          } else {
+            removedSelections.push(
+              `Laboratory: ${laboratory} (no valid analyte groups)`,
+            );
+          }
+
+          return hasValidGroup;
+        });
+
+        if (selectedLabs.length > 0) {
+          hasValidLaboratory = true;
+        } else {
+          removedSelections.push(
+            `Analysis Location: ${location} (no valid laboratories)`,
+          );
+        }
+
+        return hasValidLaboratory;
+      });
+
+      return {
+        isValid: completeSelections.length > 0,
+        removedSelections,
+        completeSelections,
+      };
+    };
+
+    // Helper function to collect selected parameters per laboratory
+    const collectParametersByLaboratory = (
+      selectedAnalysisLocations: string[],
+      selectedLaboratories: { [key: string]: string[] },
+      selectedAnalyteGroups: { [key: string]: string[] },
+      selectedMethods: { [key: string]: string[] },
+      analysisData: AnalysisLocationItem[],
+    ): Map<
+      string,
+      Array<{
+        genericName: string;
+        unit: string;
+        methodName: string;
+        analysisLocation: string;
+      }>
+    > => {
+      const laboratoryParameters = new Map<
+        string,
+        Array<{
+          genericName: string;
+          unit: string;
+          methodName: string;
+          analysisLocation: string;
+        }>
+      >();
+
+      selectedAnalysisLocations.forEach(location => {
+        const locationData = analysisData.find(
+          item => item.analysisLocation === location,
+        );
+        if (!locationData) return;
+
+        const selectedLabs = selectedLaboratories[location] || [];
+
+        selectedLabs.forEach(laboratory => {
+          const labData = locationData.laboratories.find(
+            lab => lab.laboratory === laboratory,
+          );
+          if (!labData) return;
+
+          const locationLabKey = `${location}-${laboratory}`;
+          const selectedGroups = selectedAnalyteGroups[locationLabKey] || [];
+
+          selectedGroups.forEach(groupName => {
+            const groupData = labData.analyteGroups.find(
+              group => group.groupName === groupName,
+            );
+            if (!groupData) return;
+
+            const groupKey = `${locationLabKey}-${groupName}`;
+            const selectedMethodsList = selectedMethods[groupKey] || [];
+
+            selectedMethodsList.forEach(methodName => {
+              const methodData = groupData.methods.find(
+                method => method.methodName === methodName,
+              );
+              if (!methodData) return;
+
+              // Initialize laboratory array if not exists
+              if (!laboratoryParameters.has(laboratory)) {
+                laboratoryParameters.set(laboratory, []);
+              }
+
+              const labParams = laboratoryParameters.get(laboratory)!;
+
+              // Add all parameters from this method
+              methodData.parameters.forEach(param => {
+                labParams.push({
+                  genericName: param.genericName,
+                  unit: param.unit,
+                  methodName: methodName,
+                  analysisLocation: location,
+                });
+              });
+            });
+          });
+        });
+      });
+
+      return laboratoryParameters;
+    };
+
+    // Helper function to apply end date filtering per parameter
+    const applyEndDateFiltering = (
+      parameters: Array<{
+        genericName: string;
+        unit: string;
+        methodName: string;
+        analysisLocation: string;
+      }>,
+      selectedEndDate: string,
+      csvData: CSVRow[],
+    ): Array<{
+      genericName: string;
+      unit: string;
+      methodName: string;
+      analysisLocation: string;
+    }> => {
+      if (!selectedEndDate) return parameters;
+
+      const selectedDate = new Date(selectedEndDate);
+      const fiveYearsAgo = new Date(selectedDate);
+      fiveYearsAgo.setFullYear(selectedDate.getFullYear() - 5);
+
+      return parameters.filter(param => {
+        // Find matching CSV rows for this parameter
+        const matchingRows = csvData.filter(
+          row =>
+            row.generic_name === param.genericName && row.unit === param.unit,
+        );
+
+        // If no matching rows found, include the parameter
+        if (matchingRows.length === 0) return true;
+
+        // Check if any matching row passes the date filter
+        return matchingRows.some(row => {
+          if (!row.end_date) {
+            // Use current date as default for null end_date
+            const currentDate = new Date();
+            return currentDate >= fiveYearsAgo;
+          }
+
+          const endDate = new Date(row.end_date);
+          return endDate >= fiveYearsAgo;
+        });
+      });
+    };
+
+    // Helper function to remove duplicates based on composite key (genericName + unit)
+    const deduplicateParameters = (
+      parameters: Array<{
+        genericName: string;
+        unit: string;
+        methodName: string;
+        analysisLocation: string;
+      }>,
+    ): Array<{
+      genericName: string;
+      unit: string;
+      methodName: string;
+      analysisLocation: string;
+    }> => {
+      const seen = new Set<string>();
+      const deduplicated: Array<{
+        genericName: string;
+        unit: string;
+        methodName: string;
+        analysisLocation: string;
       }> = [];
 
-      labData.methods.forEach(method => {
-        const methodKey = `${labName}-${method.methodName}`;
-
-        // Check if this method is selected for this lab
-        if (selectedMethods[labName]?.includes(method.methodName)) {
-          method.genericNames.forEach(generic => {
-            // Check if this parameter is selected
-            if (selectedGenericNames[methodKey]?.includes(generic.name)) {
-              // Check if this column name is already added (avoid duplicates)
-              if (
-                !labSelectedColumnsWithParents.some(
-                  col => col.columnName === generic.name,
-                )
-              ) {
-                labSelectedColumnsWithParents.push({
-                  columnName: generic.name,
-                  parentMethod: method.methodName,
-                });
-              }
-            }
-          });
+      parameters.forEach(param => {
+        const compositeKey = `${param.genericName}|${param.unit}`;
+        if (!seen.has(compositeKey)) {
+          seen.add(compositeKey);
+          deduplicated.push(param);
         }
       });
 
-      console.log(
-        `📊 ${labName} selected parameters:`,
-        labSelectedColumnsWithParents,
-      );
+      return deduplicated;
+    };
 
-      // Build double headers for this laboratory
-      const firstHeaderRow = [
-        // "static" for all fixed columns
-        ...fixedColumns.map(() => 'static'),
-        // Parent method names for this lab's selected columns
-        ...labSelectedColumnsWithParents.map(col => col.parentMethod),
-      ];
+    // Helper function to generate CSV content (2 rows only)
+    const generateCSVContent = (
+      parameters: Array<{
+        genericName: string;
+        unit: string;
+        methodName: string;
+        analysisLocation: string;
+      }>,
+    ): string => {
+      if (parameters.length === 0) return '';
 
-      const secondHeaderRow = [
-        // Fixed column names
-        ...fixedColumns,
-        // This lab's selected parameter names
-        ...labSelectedColumnsWithParents.map(col => col.columnName),
-      ];
+      // Row 1: Generic Names
+      const genericNameRow = parameters
+        .map(param => `"${param.genericName}"`)
+        .join(',');
 
-      // Create CSV content with double headers for this laboratory
-      const firstHeaderCSV = firstHeaderRow.map(col => `"${col}"`).join(',');
-      const secondHeaderCSV = secondHeaderRow.map(col => `"${col}"`).join(',');
-      const labCSVContent = `${firstHeaderCSV}\n${secondHeaderCSV}`;
+      // Row 2: Units
+      const unitRow = parameters.map(param => `"${param.unit}"`).join(',');
 
-      // Add to laboratory files array
-      laboratoryFiles.push({
-        filename: `${labName}.csv`,
-        content: labCSVContent,
-      });
+      return `${genericNameRow}\n${unitRow}`;
+    };
 
-      console.log(`✅ Generated CSV for ${labName}:`, {
-        filename: `${labName}.csv`,
-        firstHeader: firstHeaderRow,
-        secondHeader: secondHeaderRow,
-        parameterCount: labSelectedColumnsWithParents.length,
-      });
-    });
+    // Helper function to download a single file
+    const downloadSingleFile = (filename: string, content: string): void => {
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
 
-    console.log(
-      `📦 Total laboratory files generated: ${laboratoryFiles.length}`,
-    );
-    console.log('🔍 DEBUG - All laboratory files:', laboratoryFiles);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    };
+
+    // Helper function to download multiple files as ZIP
+    const downloadMultipleFilesAsZip = async (
+      files: Array<{ filename: string; content: string }>,
+    ): Promise<void> => {
+      try {
+        const zip = new JSZip();
+
+        // Add each file to the ZIP
+        files.forEach(file => {
+          zip.file(file.filename, file.content);
+        });
+
+        // Generate ZIP blob
+        const zipBlob = await zip.generateAsync({ type: 'blob' });
+
+        // Download the ZIP file
+        const url = URL.createObjectURL(zipBlob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'water_quality_data.zip';
+        link.style.display = 'none';
+
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        URL.revokeObjectURL(url);
+      } catch (error) {
+        console.error('Error creating ZIP file:', error);
+        throw new Error(
+          'Failed to create ZIP file. Falling back to individual downloads.',
+        );
+      }
+    };
 
     try {
-      console.log(
-        '📦 Downloading ZIP file with multiple laboratory CSV files...',
+      console.log('🚀 Starting download process...');
+
+      // Step 1: Validate and clean incomplete selections
+      console.log('📋 Step 1: Validating selections...');
+      const validation = validateAndCleanSelections(
+        selectedAnalysisLocations,
+        selectedLaboratories,
+        selectedAnalyteGroups,
+        selectedMethods,
+        analysisData,
       );
 
-      // Send POST request to backend with multiple laboratory CSV files
-      const response = await fetch('http://localhost:3001/api/download-zip', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          laboratoryFiles,
-          // Remove the old single file parameters
-          // analysisCSVContent and filename are no longer needed
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.details || 'Failed to download ZIP file');
+      // Show feedback for removed selections
+      if (validation.removedSelections.length > 0) {
+        const removedMessage = `The following incomplete selections were automatically removed:\n\n${validation.removedSelections.join(
+          '\n',
+        )}`;
+        console.warn(
+          '⚠️ Removed incomplete selections:',
+          validation.removedSelections,
+        );
+        alert(removedMessage);
       }
 
-      // Get the ZIP file as blob
-      const blob = await response.blob();
+      if (!validation.isValid) {
+        alert(
+          'No complete selection paths found. Please ensure you have selected all 4 layers:\nAnalysis Location → Laboratory → Analyte Group → Method',
+        );
+        return;
+      }
 
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'water_quality_data.zip';
-      a.click();
-      window.URL.revokeObjectURL(url);
+      console.log(
+        '✅ Valid complete selections:',
+        validation.completeSelections,
+      );
 
-      console.log('✅ ZIP file downloaded successfully');
-    } catch (err) {
-      console.error('❌ Error downloading ZIP file:', err);
-      const error = err as Error;
-      alert(`Failed to download ZIP file: ${error.message || 'Unknown error'}`);
+      // Step 2: Collect selected parameters per laboratory
+      console.log('📊 Step 2: Collecting parameters by laboratory...');
+      const laboratoryParameters = collectParametersByLaboratory(
+        selectedAnalysisLocations,
+        selectedLaboratories,
+        selectedAnalyteGroups,
+        selectedMethods,
+        analysisData,
+      );
+
+      console.log(
+        '🏢 Found parameters for laboratories:',
+        Array.from(laboratoryParameters.keys()),
+      );
+
+      // Step 3: Process each laboratory
+      const filesToDownload: Array<{ filename: string; content: string }> = [];
+
+      // Convert Map entries to array to avoid iteration issues
+      const labEntries = Array.from(laboratoryParameters.entries());
+
+      for (const [laboratory, parameters] of labEntries) {
+        console.log(
+          `🔬 Processing laboratory: ${laboratory} (${parameters.length} raw parameters)`,
+        );
+
+        // Step 3a: Apply end date filtering per parameter
+        const dateFilteredParameters = applyEndDateFiltering(
+          parameters,
+          selectedEndDate,
+          csvData,
+        );
+        console.log(
+          `📅 After date filtering: ${dateFilteredParameters.length} parameters`,
+        );
+
+        // Step 3b: Remove composite key duplicates
+        const deduplicatedParameters = deduplicateParameters(
+          dateFilteredParameters,
+        );
+        console.log(
+          `🔄 After deduplication: ${deduplicatedParameters.length} unique parameters`,
+        );
+
+        if (deduplicatedParameters.length > 0) {
+          // Step 3c: Generate CSV content (2 rows only)
+          const csvContent = generateCSVContent(deduplicatedParameters);
+
+          // Step 3d: Create filename (laboratory name + .csv)
+          const filename = `${laboratory}.csv`;
+
+          filesToDownload.push({
+            filename,
+            content: csvContent,
+          });
+
+          console.log(
+            `📄 Generated file: ${filename} (${deduplicatedParameters.length} parameters)`,
+          );
+        } else {
+          console.warn(
+            `⚠️ No parameters remaining for laboratory: ${laboratory} after filtering`,
+          );
+        }
+      }
+
+      if (filesToDownload.length === 0) {
+        alert(
+          'No data remaining after applying filters and validation. Please check your selections and date filters.',
+        );
+        return;
+      }
+
+      // Step 4: Download files
+      console.log(`📥 Step 4: Downloading ${filesToDownload.length} files...`);
+
+      if (filesToDownload.length === 1) {
+        // Single file - direct download
+        console.log('📄 Single file download');
+        downloadSingleFile(
+          filesToDownload[0].filename,
+          filesToDownload[0].content,
+        );
+      } else {
+        // Multiple files - try ZIP, fallback to individual downloads
+        console.log('📦 Multiple files - attempting ZIP download');
+        try {
+          await downloadMultipleFilesAsZip(filesToDownload);
+          console.log('✅ ZIP download successful');
+        } catch (zipError) {
+          console.warn(
+            '⚠️ ZIP download failed, falling back to individual downloads:',
+            zipError,
+          );
+
+          // Fallback: download files individually with delay
+          for (let i = 0; i < filesToDownload.length; i++) {
+            const file = filesToDownload[i];
+            setTimeout(() => {
+              downloadSingleFile(file.filename, file.content);
+            }, i * 500); // 500ms delay between downloads
+          }
+
+          alert(
+            `ZIP creation failed. Downloading ${filesToDownload.length} files individually. Please check your downloads folder.`,
+          );
+        }
+      }
+
+      // Step 5: Success feedback
+      const successMessage = `Successfully generated ${
+        filesToDownload.length
+      } CSV file(s):\n\n${filesToDownload
+        .map(f => `• ${f.filename}`)
+        .join('\n')}\n\nTotal unique parameters: ${filesToDownload.reduce(
+        (sum, file) => sum + file.content.split('\n')[0].split(',').length,
+        0,
+      )}`;
+
+      console.log('✅ Download process completed successfully');
+      alert(successMessage);
+    } catch (error) {
+      console.error('❌ Download process failed:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(
+        `Download failed: ${errorMessage}\n\nPlease check the browser console for detailed error information.`,
+      );
     }
   };
 
   const getSelectedDataCount = () => {
     let count = 0;
-    analysisData.forEach(lab => {
-      if (selectedLabs.includes(lab.laboratory)) {
-        lab.methods.forEach(method => {
-          const methodKey = `${lab.laboratory}-${method.methodName}`;
-          if (selectedMethods[lab.laboratory]?.includes(method.methodName)) {
-            method.genericNames.forEach(generic => {
-              if (selectedGenericNames[methodKey]?.includes(generic.name)) {
-                count++;
+    analysisData.forEach(location => {
+      if (selectedAnalysisLocations.includes(location.analysisLocation)) {
+        location.laboratories.forEach(lab => {
+          if (
+            selectedLaboratories[location.analysisLocation]?.includes(
+              lab.laboratory,
+            )
+          ) {
+            lab.analyteGroups.forEach(group => {
+              const locationLabKey = `${location.analysisLocation}-${lab.laboratory}`;
+              if (
+                selectedAnalyteGroups[locationLabKey]?.includes(group.groupName)
+              ) {
+                group.methods.forEach(method => {
+                  const groupKey = `${locationLabKey}-${group.groupName}`;
+                  if (selectedMethods[groupKey]?.includes(method.methodName)) {
+                    count += method.parameters.length;
+                  }
+                });
               }
             });
           }
@@ -793,7 +1108,7 @@ export default function AnalysisDownloadContent() {
             marginBottom: '16px',
           }}
         >
-          Analysis Download
+          Analysis Download (4-Layer Selection)
         </h1>
         <p
           style={{
@@ -803,12 +1118,58 @@ export default function AnalysisDownloadContent() {
             maxWidth: '800px',
           }}
         >
-          Select laboratories, analysis methods, and specific parameters to
-          download water quality data. Navigate through the hierarchical
-          structure to build your custom dataset.
+          Select analysis locations, laboratories, analyte groups, and specific
+          methods to download water quality data. Navigate through the 4-layer
+          hierarchical structure to build your custom dataset.
         </p>
       </div>
 
+      {/* End Date Filter */}
+      <div
+        style={{
+          marginBottom: '40px',
+          padding: '20px',
+          background: '#f5f5f5',
+          borderRadius: '8px',
+        }}
+      >
+        <h3
+          style={{
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: '#05325f',
+            marginBottom: '12px',
+          }}
+        >
+          Date Filter
+        </h3>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+          }}
+        >
+          <label style={{ color: '#414141' }}>End Date Filter:</label>
+          <input
+            type="date"
+            value={selectedEndDate}
+            onChange={e => setSelectedEndDate(e.target.value)}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #ccc',
+              borderRadius: '4px',
+              fontSize: '14px',
+            }}
+          />
+          <span style={{ fontSize: '14px', color: '#666' }}>
+            (Excludes records with end dates older than 5 years from selected
+            date)
+          </span>
+        </div>
+      </div>
+
+      {/* 4-Layer Selection Interface */}
       <div style={{ marginBottom: '40px' }}>
         <h2
           style={{
@@ -818,8 +1179,9 @@ export default function AnalysisDownloadContent() {
             marginBottom: '24px',
           }}
         >
-          Step 1: Select Laboratories
+          Step 1: Select Analysis Locations
         </h2>
+
         <div
           style={{
             display: 'flex',
@@ -827,60 +1189,46 @@ export default function AnalysisDownloadContent() {
             gap: '16px',
           }}
         >
-          {analysisData.map(lab => (
+          {analysisData.map(location => (
             <div
-              key={lab.laboratory}
+              key={location.analysisLocation}
               style={{
                 border: `2px solid ${
-                  selectedLabs.includes(lab.laboratory) ? '#6bbe27' : '#e0e0e0'
+                  selectedAnalysisLocations.includes(location.analysisLocation)
+                    ? '#6bbe27'
+                    : '#e0e0e0'
                 }`,
                 borderRadius: '8px',
-                background: selectedLabs.includes(lab.laboratory)
+                background: selectedAnalysisLocations.includes(
+                  location.analysisLocation,
+                )
                   ? '#f8fdf5'
                   : '#ffffff',
                 transition: 'all 0.3s ease',
               }}
-              onMouseEnter={e => {
-                if (!selectedLabs.includes(lab.laboratory)) {
-                  e.currentTarget.style.borderColor = '#6bbe27';
-                }
-              }}
-              onMouseLeave={e => {
-                if (!selectedLabs.includes(lab.laboratory)) {
-                  e.currentTarget.style.borderColor = '#e0e0e0';
-                }
-              }}
             >
               <div
-                onClick={() => handleLabSelection(lab.laboratory)}
+                onClick={() =>
+                  handleAnalysisLocationSelection(location.analysisLocation)
+                }
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '20px',
                   cursor: 'pointer',
-                  background: selectedLabs.includes(lab.laboratory)
+                  background: selectedAnalysisLocations.includes(
+                    location.analysisLocation,
+                  )
                     ? '#6bbe27'
                     : '#f5f5f5',
-                  color: selectedLabs.includes(lab.laboratory)
+                  color: selectedAnalysisLocations.includes(
+                    location.analysisLocation,
+                  )
                     ? '#ffffff'
                     : '#161616',
                   borderRadius: '6px 6px 0 0',
                   transition: 'background 0.3s ease',
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.background = selectedLabs.includes(
-                    lab.laboratory,
-                  )
-                    ? '#5ba322'
-                    : '#e8e8e8';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.background = selectedLabs.includes(
-                    lab.laboratory,
-                  )
-                    ? '#6bbe27'
-                    : '#f5f5f5';
                 }}
               >
                 <h3
@@ -890,23 +1238,29 @@ export default function AnalysisDownloadContent() {
                     margin: 0,
                   }}
                 >
-                  {lab.laboratory}
+                  📍 {location.analysisLocation.toUpperCase()}
                 </h3>
                 <span
                   style={{
                     fontSize: '14px',
                     transition: 'transform 0.3s ease',
-                    transform: expandedLabs.includes(lab.laboratory)
+                    transform: expandedAnalysisLocations.includes(
+                      location.analysisLocation,
+                    )
                       ? 'rotate(0deg)'
                       : 'rotate(-90deg)',
                   }}
                 >
-                  {expandedLabs.includes(lab.laboratory) ? '▼' : '▶'}
+                  {expandedAnalysisLocations.includes(location.analysisLocation)
+                    ? '▼'
+                    : '▶'}
                 </span>
               </div>
 
-              {expandedLabs.includes(lab.laboratory) &&
-                selectedLabs.includes(lab.laboratory) && (
+              {expandedAnalysisLocations.includes(location.analysisLocation) &&
+                selectedAnalysisLocations.includes(
+                  location.analysisLocation,
+                ) && (
                   <div style={{ padding: '20px' }}>
                     <h4
                       style={{
@@ -916,11 +1270,12 @@ export default function AnalysisDownloadContent() {
                         marginBottom: '16px',
                       }}
                     >
-                      Step 2: Select Analysis Methods
+                      Step 2: Select Laboratories
                     </h4>
-                    {lab.methods.map(method => (
+
+                    {location.laboratories.map(lab => (
                       <div
-                        key={method.methodName}
+                        key={lab.laboratory}
                         style={{
                           marginBottom: '16px',
                           border: '1px solid #e0e0e0',
@@ -929,78 +1284,73 @@ export default function AnalysisDownloadContent() {
                       >
                         <div
                           onClick={() =>
-                            handleMethodSelection(
+                            handleLaboratorySelection(
+                              location.analysisLocation,
                               lab.laboratory,
-                              method.methodName,
                             )
                           }
                           style={{
                             display: 'flex',
                             alignItems: 'center',
+                            justifyContent: 'space-between',
                             padding: '12px 16px',
                             cursor: 'pointer',
-                            background: selectedMethods[
-                              lab.laboratory
-                            ]?.includes(method.methodName)
+                            background: selectedLaboratories[
+                              location.analysisLocation
+                            ]?.includes(lab.laboratory)
                               ? '#e8f5e8'
                               : '#ffffff',
                             transition: 'background 0.3s ease',
                           }}
-                          onMouseEnter={e => {
-                            e.currentTarget.style.background = '#f0f8f0';
-                          }}
-                          onMouseLeave={e => {
-                            e.currentTarget.style.background = selectedMethods[
-                              lab.laboratory
-                            ]?.includes(method.methodName)
-                              ? '#e8f5e8'
-                              : '#ffffff';
-                          }}
                         >
-                          <input
-                            type="checkbox"
-                            checked={
-                              selectedMethods[lab.laboratory]?.includes(
-                                method.methodName,
-                              ) || false
-                            }
-                            onChange={() =>
-                              handleMethodSelection(
-                                lab.laboratory,
-                                method.methodName,
-                              )
-                            }
-                            style={{
-                              marginRight: '12px',
-                              transform: 'scale(1.2)',
-                            }}
-                          />
-                          <span
-                            style={{
-                              fontSize: '16px',
-                              color: '#161616',
-                              flex: 1,
-                            }}
+                          <div
+                            style={{ display: 'flex', alignItems: 'center' }}
                           >
-                            {method.methodName}
-                          </span>
+                            <input
+                              type="checkbox"
+                              checked={
+                                selectedLaboratories[
+                                  location.analysisLocation
+                                ]?.includes(lab.laboratory) || false
+                              }
+                              onChange={() =>
+                                handleLaboratorySelection(
+                                  location.analysisLocation,
+                                  lab.laboratory,
+                                )
+                              }
+                              style={{
+                                marginRight: '12px',
+                                transform: 'scale(1.2)',
+                              }}
+                            />
+                            <span
+                              style={{
+                                fontSize: '16px',
+                                fontWeight: 'bold',
+                                color: '#161616',
+                              }}
+                            >
+                              🏢 {lab.laboratory}
+                            </span>
+                          </div>
                           <span
                             style={{
                               fontSize: '14px',
                               transition: 'transform 0.3s ease',
                             }}
                           >
-                            {expandedMethods[lab.laboratory]?.includes(
-                              method.methodName,
-                            )
+                            {expandedLaboratories[
+                              location.analysisLocation
+                            ]?.includes(lab.laboratory)
                               ? '▼'
                               : '▶'}
                           </span>
                         </div>
 
-                        {expandedMethods[lab.laboratory]?.includes(
-                          method.methodName,
-                        ) && (
+                        {expandedLaboratories[
+                          location.analysisLocation
+                        ]?.includes(lab.laboratory) && (
                           <div
                             style={{
                               padding: '16px',
@@ -1016,69 +1366,273 @@ export default function AnalysisDownloadContent() {
                                 marginBottom: '12px',
                               }}
                             >
-                              Step 3: Select Parameters
+                              Step 3: Select Analyte Groups
                             </h5>
-                            <div
-                              style={{
-                                display: 'grid',
-                                gridTemplateColumns:
-                                  'repeat(auto-fit, minmax(300px, 1fr))',
-                                gap: '8px',
-                              }}
-                            >
-                              {method.genericNames.map(generic => {
-                                const methodKey = `${lab.laboratory}-${method.methodName}`;
-                                return (
+
+                            {lab.analyteGroups.map(group => {
+                              const locationLabKey = `${location.analysisLocation}-${lab.laboratory}`;
+                              return (
+                                <div
+                                  key={group.groupName}
+                                  style={{
+                                    marginBottom: '12px',
+                                    border: '1px solid #e0e0e0',
+                                    borderRadius: '6px',
+                                  }}
+                                >
                                   <div
-                                    key={generic.name}
+                                    onClick={() =>
+                                      handleAnalyteGroupSelection(
+                                        locationLabKey,
+                                        group.groupName,
+                                      )
+                                    }
                                     style={{
                                       display: 'flex',
                                       alignItems: 'center',
-                                      padding: '8px',
-                                      background: '#ffffff',
-                                      borderRadius: '4px',
-                                      border: '1px solid #e0e0e0',
+                                      justifyContent: 'space-between',
+                                      padding: '12px 16px',
+                                      cursor: 'pointer',
+                                      background: selectedAnalyteGroups[
+                                        locationLabKey
+                                      ]?.includes(group.groupName)
+                                        ? '#f0e8ff'
+                                        : '#ffffff',
                                       transition: 'background 0.3s ease',
                                     }}
-                                    onMouseEnter={e => {
-                                      e.currentTarget.style.background =
-                                        '#f8f8f8';
-                                    }}
-                                    onMouseLeave={e => {
-                                      e.currentTarget.style.background =
-                                        '#ffffff';
-                                    }}
                                   >
-                                    <input
-                                      type="checkbox"
-                                      checked={
-                                        selectedGenericNames[
-                                          methodKey
-                                        ]?.includes(generic.name) || false
-                                      }
-                                      onChange={() =>
-                                        handleGenericNameSelection(
-                                          methodKey,
-                                          generic.name,
-                                        )
-                                      }
+                                    <div
                                       style={{
-                                        marginRight: '12px',
-                                        transform: 'scale(1.2)',
+                                        display: 'flex',
+                                        alignItems: 'center',
                                       }}
-                                    />
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={
+                                          selectedAnalyteGroups[
+                                            locationLabKey
+                                          ]?.includes(group.groupName) || false
+                                        }
+                                        onChange={() =>
+                                          handleAnalyteGroupSelection(
+                                            locationLabKey,
+                                            group.groupName,
+                                          )
+                                        }
+                                        style={{
+                                          marginRight: '12px',
+                                          transform: 'scale(1.2)',
+                                        }}
+                                      />
+                                      <span
+                                        style={{
+                                          fontSize: '16px',
+                                          fontWeight: 'bold',
+                                          color: '#161616',
+                                        }}
+                                      >
+                                        📊 {group.groupName}
+                                      </span>
+                                    </div>
                                     <span
                                       style={{
                                         fontSize: '14px',
-                                        color: '#414141',
+                                        transition: 'transform 0.3s ease',
                                       }}
                                     >
-                                      {generic.name}
+                                      {expandedAnalyteGroups[
+                                        locationLabKey
+                                      ]?.includes(group.groupName)
+                                        ? '▼'
+                                        : '▶'}
                                     </span>
                                   </div>
-                                );
-                              })}
-                            </div>
+
+                                  {expandedAnalyteGroups[
+                                    locationLabKey
+                                  ]?.includes(group.groupName) && (
+                                    <div
+                                      style={{
+                                        padding: '16px',
+                                        background: '#f8f8f8',
+                                        borderTop: '1px solid #e0e0e0',
+                                      }}
+                                    >
+                                      <h6
+                                        style={{
+                                          fontSize: '16px',
+                                          fontWeight: 'bold',
+                                          color: '#05325f',
+                                          marginBottom: '12px',
+                                        }}
+                                      >
+                                        Step 4: Select Methods
+                                      </h6>
+
+                                      {group.methods.map(method => {
+                                        const groupKey = `${locationLabKey}-${group.groupName}`;
+                                        return (
+                                          <div
+                                            key={method.methodName}
+                                            style={{
+                                              marginBottom: '8px',
+                                            }}
+                                          >
+                                            <div
+                                              onClick={() =>
+                                                handleMethodSelection(
+                                                  groupKey,
+                                                  method.methodName,
+                                                )
+                                              }
+                                              style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '8px 12px',
+                                                cursor: 'pointer',
+                                                background: selectedMethods[
+                                                  groupKey
+                                                ]?.includes(method.methodName)
+                                                  ? '#fff3e0'
+                                                  : '#ffffff',
+                                                borderRadius: '4px',
+                                                border: '1px solid #e0e0e0',
+                                                transition:
+                                                  'background 0.3s ease',
+                                              }}
+                                            >
+                                              <div
+                                                style={{
+                                                  display: 'flex',
+                                                  alignItems: 'center',
+                                                }}
+                                              >
+                                                <input
+                                                  type="checkbox"
+                                                  checked={
+                                                    selectedMethods[
+                                                      groupKey
+                                                    ]?.includes(
+                                                      method.methodName,
+                                                    ) || false
+                                                  }
+                                                  onChange={() =>
+                                                    handleMethodSelection(
+                                                      groupKey,
+                                                      method.methodName,
+                                                    )
+                                                  }
+                                                  style={{
+                                                    marginRight: '12px',
+                                                    transform: 'scale(1.2)',
+                                                  }}
+                                                />
+                                                <span
+                                                  style={{
+                                                    fontSize: '14px',
+                                                    fontWeight: 'bold',
+                                                    color: '#161616',
+                                                  }}
+                                                >
+                                                  🔬 {method.methodName}
+                                                </span>
+                                                <span
+                                                  style={{
+                                                    marginLeft: '8px',
+                                                    fontSize: '12px',
+                                                    color: '#666',
+                                                  }}
+                                                >
+                                                  ({method.parameters.length}{' '}
+                                                  parameters)
+                                                </span>
+                                              </div>
+                                              <span
+                                                style={{
+                                                  fontSize: '12px',
+                                                }}
+                                              >
+                                                {expandedMethods[
+                                                  groupKey
+                                                ]?.includes(method.methodName)
+                                                  ? '▼'
+                                                  : '▶'}
+                                              </span>
+                                            </div>
+
+                                            {expandedMethods[
+                                              groupKey
+                                            ]?.includes(method.methodName) && (
+                                              <div
+                                                style={{
+                                                  marginTop: '8px',
+                                                  padding: '12px',
+                                                  background: '#ffffff',
+                                                  borderRadius: '4px',
+                                                  border: '1px solid #e0e0e0',
+                                                }}
+                                              >
+                                                <h6
+                                                  style={{
+                                                    fontSize: '14px',
+                                                    fontWeight: 'bold',
+                                                    color: '#2e7d32',
+                                                    marginBottom: '8px',
+                                                  }}
+                                                >
+                                                  Parameters (Generic Name +
+                                                  Unit):
+                                                </h6>
+                                                <div
+                                                  style={{
+                                                    display: 'grid',
+                                                    gridTemplateColumns:
+                                                      'repeat(auto-fit, minmax(300px, 1fr))',
+                                                    gap: '8px',
+                                                  }}
+                                                >
+                                                  {method.parameters.map(
+                                                    (param, idx) => (
+                                                      <div
+                                                        key={idx}
+                                                        style={{
+                                                          display: 'flex',
+                                                          alignItems: 'center',
+                                                          padding: '8px',
+                                                          background: '#e8f5e8',
+                                                          borderRadius: '4px',
+                                                          border:
+                                                            '1px solid #c8e6c9',
+                                                        }}
+                                                      >
+                                                        <span
+                                                          style={{
+                                                            fontSize: '12px',
+                                                            color: '#2e7d32',
+                                                          }}
+                                                        >
+                                                          ⚗️{' '}
+                                                          <strong>
+                                                            {param.genericName}
+                                                          </strong>{' '}
+                                                          ({param.unit})
+                                                        </span>
+                                                      </div>
+                                                    ),
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -1090,6 +1644,7 @@ export default function AnalysisDownloadContent() {
         </div>
       </div>
 
+      {/* Download Section */}
       <div
         style={{
           borderTop: '2px solid #e0e0e0',
@@ -1106,36 +1661,114 @@ export default function AnalysisDownloadContent() {
             borderRadius: '8px',
           }}
         >
-          <div
-            style={{
-              fontSize: '16px',
-              color: '#414141',
-            }}
-          >
-            Selected Data Points: <strong>{getSelectedDataCount()}</strong>
+          <div style={{ color: '#414141' }}>
+            <div
+              style={{
+                fontSize: '16px',
+                fontWeight: 'bold',
+                marginBottom: '4px',
+              }}
+            >
+              Selected Data Points:{' '}
+              <span style={{ color: '#6bbe27' }}>{getSelectedDataCount()}</span>
+            </div>
+            <div
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '4px',
+              }}
+            >
+              Files will be generated per Laboratory with composite key
+              deduplication (Generic Name + Unit)
+            </div>
+            {selectedEndDate && (
+              <div
+                style={{
+                  fontSize: '14px',
+                  color: '#1976d2',
+                }}
+              >
+                🗓️ Filtered by end date: {selectedEndDate} (excluding records
+                older than 5 years)
+              </div>
+            )}
           </div>
           <button
             onClick={downloadCSV}
+            disabled={getSelectedDataCount() === 0}
             style={{
-              background: '#6bbe27',
+              background: getSelectedDataCount() > 0 ? '#6bbe27' : '#cccccc',
               color: 'white',
               border: 'none',
               padding: '12px 24px',
               borderRadius: '6px',
               fontSize: '16px',
               fontWeight: 'bold',
-              cursor: 'pointer',
-              transition: 'background 0.3s ease',
+              cursor: getSelectedDataCount() > 0 ? 'pointer' : 'not-allowed',
+              transition: 'all 0.3s ease',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.background = '#5ba322';
+              if (getSelectedDataCount() > 0) {
+                e.currentTarget.style.background = '#5ba322';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.background = '#6bbe27';
+              if (getSelectedDataCount() > 0) {
+                e.currentTarget.style.background = '#6bbe27';
+                e.currentTarget.style.transform = 'scale(1)';
+              }
             }}
           >
             Download ZIP Package
           </button>
+        </div>
+      </div>
+
+      {/* Data Structure Info */}
+      <div
+        style={{
+          marginTop: '32px',
+          padding: '16px',
+          background: '#e3f2fd',
+          borderRadius: '8px',
+          border: '1px solid #bbdefb',
+        }}
+      >
+        <h3
+          style={{
+            fontSize: '16px',
+            fontWeight: 'bold',
+            color: '#1565c0',
+            marginBottom: '8px',
+          }}
+        >
+          Data Structure Information
+        </h3>
+        <div
+          style={{
+            fontSize: '14px',
+            color: '#1976d2',
+            lineHeight: 1.5,
+          }}
+        >
+          <p style={{ margin: '4px 0' }}>
+            <strong>Hierarchy:</strong> Analysis Location → Laboratory → Analyte
+            Group → Method → Parameters
+          </p>
+          <p style={{ margin: '4px 0' }}>
+            <strong>Output CSV Format:</strong> Row 1: Generic Names, Row 2:
+            Units
+          </p>
+          <p style={{ margin: '4px 0' }}>
+            <strong>Deduplication:</strong> Based on composite key (Generic Name
+            + Unit)
+          </p>
+          <p style={{ margin: '4px 0' }}>
+            <strong>Date Filtering:</strong> Excludes records with end dates
+            more than 5 years before selected date
+          </p>
         </div>
       </div>
     </div>
