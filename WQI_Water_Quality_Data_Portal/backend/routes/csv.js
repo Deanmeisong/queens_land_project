@@ -174,116 +174,87 @@ router.get('/monitoring-sites-csv', async (req, res) => {
   }
 });
 
-// New endpoint: Download ZIP with all CSVs + custom analysis CSV
-// router.post('/download-zip', async (req, res) => {
-//   const startTime = Date.now();
+// Site Template Excel endpoint
+router.get('/site-template-xlsx', async (req, res) => {
+  try {
+    const response = await axios.get(
+      `${process.env.MOCK_SERVER_URL}/site_template.xlsx`,
+      {
+        timeout: 10000,
+        responseType: 'arraybuffer',
+      },
+    );
 
-//   try {
-//     console.log('📦 Creating ZIP file with all CSVs...');
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="site_template.xlsx"',
+    });
 
-//     // Get custom analysis CSV content from request body
-//     const { analysisCSVContent, filename = 'analysis_data.csv' } = req.body;
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch site template Excel',
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 
-//     if (!analysisCSVContent) {
-//       return res.status(400).json({
-//         error: 'Missing analysis CSV content',
-//         details: 'analysisCSVContent is required in request body',
-//       });
-//     }
+// Project Template Excel endpoint
+router.get('/project-template-xlsx', async (req, res) => {
+  try {
+    const response = await axios.get(
+      `${process.env.MOCK_SERVER_URL}/project_template.xlsx`,
+      {
+        timeout: 10000,
+        responseType: 'arraybuffer',
+      },
+    );
 
-//     // Fetch all three CSV files concurrently
-//     console.log('🔄 Fetching all CSV files...');
-//     const csvPromises = Object.entries(CSV_FILES).map(async ([key, config]) => {
-//       try {
-//         const result = await fetchCSVWithCache(config);
-//         return {
-//           filename: config.filename,
-//           content: result.data,
-//           source: result.source,
-//         };
-//       } catch (error) {
-//         console.error(`Failed to fetch ${config.filename}:`, error.message);
-//         return {
-//           filename: config.filename,
-//           content: `Error: Failed to fetch ${config.filename}\n${error.message}`,
-//           source: 'error',
-//         };
-//       }
-//     });
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="project_template.xlsx"',
+    });
 
-//     const csvFiles = await Promise.all(csvPromises);
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch project template Excel',
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 
-//     // Set response headers for ZIP download
-//     res.set({
-//       'Content-Type': 'application/zip',
-//       'Content-Disposition': 'attachment; filename="water_quality_data.zip"',
-//       'X-Response-Time': `${Date.now() - startTime}ms`,
-//     });
+// Metadata Statement Template Excel endpoint
+router.get('/metadata-statement-template-xlsx', async (req, res) => {
+  try {
+    const response = await axios.get(
+      `${process.env.MOCK_SERVER_URL}/metadata_statement_template.xlsx`,
+      {
+        timeout: 10000,
+        responseType: 'arraybuffer',
+      },
+    );
 
-//     // Create ZIP archive
-//     const archive = archiver('zip', {
-//       zlib: { level: 9 }, // Maximum compression
-//     });
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition':
+        'attachment; filename="metadata_statement_template.xlsx"',
+    });
 
-//     // Handle archive errors
-//     archive.on('error', err => {
-//       console.error('📦 Archive error:', err);
-//       if (!res.headersSent) {
-//         res.status(500).json({
-//           error: 'Failed to create ZIP archive',
-//           details: err.message,
-//         });
-//       }
-//     });
-
-//     // Pipe archive to response
-//     archive.pipe(res);
-
-//     // Add the custom analysis CSV
-//     archive.append(analysisCSVContent, { name: filename });
-//     console.log(`📄 Added custom analysis CSV: ${filename}`);
-
-//     // Add all fetched CSV files
-//     csvFiles.forEach(file => {
-//       archive.append(file.content, { name: file.filename });
-//       console.log(`📄 Added ${file.filename} (source: ${file.source})`);
-//     });
-
-//     // Add a README file with metadata
-//     const readmeContent = `Water Quality Data Export
-// Generated: ${new Date().toISOString()}
-
-// Files included:
-// 1. ${filename} - Custom analysis data based on user selections
-// 2. lab_reference_info.csv - Laboratory reference information
-// 3. sample_data.csv - Sample data
-// 4. monitoring_sites.csv - Monitoring sites information
-
-// Total files: 4
-// Archive created by: Water Quality Portal
-// `;
-
-//     archive.append(readmeContent, { name: 'README.txt' });
-//     console.log('📄 Added README.txt');
-
-//     // Finalize the archive
-//     await archive.finalize();
-
-//     console.log(
-//       `✅ ZIP file created successfully in ${Date.now() - startTime}ms`,
-//     );
-//   } catch (error) {
-//     console.error('❌ Error creating ZIP:', error);
-
-//     if (!res.headersSent) {
-//       res.status(500).json({
-//         error: 'Failed to create ZIP file',
-//         details: error.message,
-//         timestamp: new Date().toISOString(),
-//       });
-//     }
-//   }
-// });
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch metadata statement template Excel',
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
 
 // Updated backend route in routes/csv.js
 router.post('/download-zip', async (req, res) => {

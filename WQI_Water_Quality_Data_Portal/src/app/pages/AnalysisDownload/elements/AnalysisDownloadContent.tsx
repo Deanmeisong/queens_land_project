@@ -561,6 +561,134 @@ export default function AnalysisDownloadContent() {
     }
   };
 
+  // Add these functions to your React component
+
+  // Download site template Excel
+  const downloadSiteTemplate = async () => {
+    try {
+      console.log('🔽 Starting site template download...');
+
+      const response = await fetch(
+        'http://localhost:3001/api/site-template-xlsx?t=' + Date.now(),
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const excelContent = await response.arrayBuffer();
+
+      // Create and download the file
+      const blob = new Blob([excelContent], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'site_template.xlsx';
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Site template downloaded successfully');
+      alert('Site template Excel downloaded successfully!');
+    } catch (error) {
+      console.error('❌ Site template download failed:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to download site template: ${errorMessage}`);
+    }
+  };
+
+  // Download project template Excel
+  const downloadProjectTemplate = async () => {
+    try {
+      console.log('🔽 Starting project template download...');
+
+      const response = await fetch(
+        'http://localhost:3001/api/project-template-xlsx?t=' + Date.now(),
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const excelContent = await response.arrayBuffer();
+
+      // Create and download the file
+      const blob = new Blob([excelContent], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'project_template.xlsx';
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Project template downloaded successfully');
+      alert('Project template Excel downloaded successfully!');
+    } catch (error) {
+      console.error('❌ Project template download failed:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to download project template: ${errorMessage}`);
+    }
+  };
+
+  // Download metadata statement template Excel
+  const downloadMetadataStatementTemplate = async () => {
+    try {
+      console.log('🔽 Starting metadata statement template download...');
+
+      const response = await fetch(
+        'http://localhost:3001/api/metadata-statement-template-xlsx?t=' + Date.now(),
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const excelContent = await response.arrayBuffer();
+
+      // Create and download the file
+      const blob = new Blob([excelContent], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      });
+      const url = URL.createObjectURL(blob);
+
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'metadata_statement_template.xlsx';
+      link.style.display = 'none';
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+
+      console.log('✅ Metadata statement template downloaded successfully');
+      alert('Metadata statement template Excel downloaded successfully!');
+    } catch (error) {
+      console.error('❌ Metadata statement template download failed:', error);
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error occurred';
+      alert(`Failed to download metadata statement template: ${errorMessage}`);
+    }
+  };
+
   // Main download function - COMPLETELY REPLACED
   const downloadCSV = async () => {
     // Helper function to validate and clean incomplete selections
@@ -1725,6 +1853,7 @@ export default function AnalysisDownloadContent() {
       </div>
 
       {/* Additional CSV Downloads Section */}
+      {/* Updated Additional CSV Downloads Section */}
       <div
         style={{
           borderTop: '2px solid #e0e0e0',
@@ -1750,18 +1879,17 @@ export default function AnalysisDownloadContent() {
             lineHeight: 1.5,
           }}
         >
-          Download additional CSV files containing sample data and monitoring
-          site information.
+          Download additional CSV files and Excel templates for data analysis and reporting.
         </p>
 
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
             gap: '16px',
           }}
         >
-          {/* Sample Data Download */}
+          {/* Existing Sample Data Download */}
           <div
             style={{
               background: '#f8f9fa',
@@ -1797,8 +1925,7 @@ export default function AnalysisDownloadContent() {
                 lineHeight: 1.4,
               }}
             >
-              Water quality measurements and analytical results from laboratory
-              analyses.
+              Water quality measurements and analytical results from laboratory analyses.
             </p>
             <button
               onClick={downloadSampleData}
@@ -1814,20 +1941,12 @@ export default function AnalysisDownloadContent() {
                 transition: 'all 0.3s ease',
                 width: '100%',
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = '#1565c0';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = '#1976d2';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
             >
               Download sample_data.csv
             </button>
           </div>
 
-          {/* Monitoring Sites Download */}
+          {/* Existing Monitoring Sites Download */}
           <div
             style={{
               background: '#f8f9fa',
@@ -1863,8 +1982,7 @@ export default function AnalysisDownloadContent() {
                 lineHeight: 1.4,
               }}
             >
-              Geographic locations and metadata for water quality monitoring
-              sites.
+              Geographic locations and metadata for water quality monitoring sites.
             </p>
             <button
               onClick={downloadMonitoringSites}
@@ -1880,16 +1998,179 @@ export default function AnalysisDownloadContent() {
                 transition: 'all 0.3s ease',
                 width: '100%',
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = '#2e7d32';
-                e.currentTarget.style.transform = 'translateY(-2px)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = '#388e3c';
-                e.currentTarget.style.transform = 'translateY(0)';
-              }}
             >
               Download monitoring_sites.csv
+            </button>
+          </div>
+
+          {/* NEW: Site Template Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>🏗️</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Site Template
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Excel template for organizing and submitting site location data.
+            </p>
+            <button
+              onClick={downloadSiteTemplate}
+              style={{
+                background: '#ff9800',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download site_template.xlsx
+            </button>
+          </div>
+
+          {/* NEW: Project Template Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>📋</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Project Template
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Excel template for project information and metadata organization.
+            </p>
+            <button
+              onClick={downloadProjectTemplate}
+              style={{
+                background: '#9c27b0',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download project_template.xlsx
+            </button>
+          </div>
+
+          {/* NEW: Metadata Statement Template Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>📄</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Metadata Statement
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Excel template for creating detailed metadata statements and documentation.
+            </p>
+            <button
+              onClick={downloadMetadataStatementTemplate}
+              style={{
+                background: '#795548',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download metadata_statement_template.xlsx
             </button>
           </div>
         </div>

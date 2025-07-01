@@ -1,22 +1,23 @@
+// In mock-server/server.js
 const express = require('express');
 const path = require('path');
 const cors = require('cors');
 const fs = require('fs');
 
 const app = express();
-const PORT = 8080; // Different port to avoid conflicts
+const PORT = process.env.MOCK_PORT || 8080;
 
-// Enable CORS for all origins (like the real server)
+// Enable CORS for all origins
 app.use(cors({
   origin: '*',
   methods: ['GET', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['*']
 }));
 
-// Serve static files from public directory
+// Serve static files with proper headers for both CSV and Excel
 app.use('/wqinv_templates', express.static(path.join(__dirname, 'public/wqinv_templates'), {
   setHeaders: (res, filePath) => {
-    // Set proper CSV headers
+    // CSV files
     if (filePath.endsWith('.csv')) {
       res.set({
         'Content-Type': 'text/csv',
@@ -27,24 +28,36 @@ app.use('/wqinv_templates', express.static(path.join(__dirname, 'public/wqinv_te
         'Access-Control-Allow-Headers': '*'
       });
     }
+    // Excel files (.xlsx)
+    else if (filePath.endsWith('.xlsx')) {
+      res.set({
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Content-Disposition': 'attachment',
+        'Cache-Control': 'public, max-age=3600',
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
+        'Access-Control-Allow-Headers': '*'
+      });
+    }
   }
 }));
 
-// Root endpoint - list available files
+// Root endpoint - list available files (updated to include Excel)
 app.get('/', (req, res) => {
   const templatesDir = path.join(__dirname, 'public/wqinv_templates');
   
   try {
     const files = fs.readdirSync(templatesDir)
-      .filter(file => file.endsWith('.csv'))
+      .filter(file => file.endsWith('.csv') || file.endsWith('.xlsx'))
       .map(file => ({
         name: file,
         url: `http://localhost:${PORT}/wqinv_templates/${file}`,
-        size: fs.statSync(path.join(templatesDir, file)).size
+        size: fs.statSync(path.join(templatesDir, file)).size,
+        type: file.endsWith('.csv') ? 'CSV' : 'Excel'
       }));
     
     res.json({
-      message: 'Mock CSV Server - Available Files',
+      message: 'Mock CSV/Excel Server - Available Files',
       baseUrl: `http://localhost:${PORT}`,
       files: files,
       totalFiles: files.length
@@ -54,17 +67,7 @@ app.get('/', (req, res) => {
   }
 });
 
-// Health check
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    message: 'Mock CSV Server is running',
-    port: PORT,
-    timestamp: new Date().toISOString()
-  });
-});
-
-// 404 handler
+// 404 handler (updated endpoints)
 app.use((req, res) => {
   res.status(404).json({
     error: 'File not found',
@@ -73,18 +76,26 @@ app.use((req, res) => {
       `http://localhost:${PORT}/`,
       `http://localhost:${PORT}/wqinv_templates/lab_reference_info.csv`,
       `http://localhost:${PORT}/wqinv_templates/sample_data.csv`,
-      `http://localhost:${PORT}/wqinv_templates/monitoring_sites.csv`
+      `http://localhost:${PORT}/wqinv_templates/monitoring_sites.csv`,
+      `http://localhost:${PORT}/wqinv_templates/site_template.xlsx`,
+      `http://localhost:${PORT}/wqinv_templates/project_template.xlsx`,
+      `http://localhost:${PORT}/wqinv_templates/metadata_statement_template.xlsx`
     ]
   });
 });
 
 app.listen(PORT, () => {
-  console.log(`🎭 Mock CSV Server running on http://localhost:${PORT}`);
+  console.log(`🎭 Mock CSV/Excel Server running on http://localhost:${PORT}`);
   console.log(`📁 Serving files from: ./public/wqinv_templates/`);
   console.log(`📋 Available endpoints:`);
   console.log(`   • http://localhost:${PORT}/ (file listing)`);
+  console.log(`   📄 CSV Files:`);
   console.log(`   • http://localhost:${PORT}/wqinv_templates/lab_reference_info.csv`);
   console.log(`   • http://localhost:${PORT}/wqinv_templates/sample_data.csv`);
   console.log(`   • http://localhost:${PORT}/wqinv_templates/monitoring_sites.csv`);
+  console.log(`   📊 Excel Templates:`);
+  console.log(`   • http://localhost:${PORT}/wqinv_templates/site_template.xlsx`);
+  console.log(`   • http://localhost:${PORT}/wqinv_templates/project_template.xlsx`);
+  console.log(`   • http://localhost:${PORT}/wqinv_templates/metadata_statement_template.xlsx`);
   console.log(`🔧 Health check: http://localhost:${PORT}/health`);
 });
