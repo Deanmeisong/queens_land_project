@@ -561,8 +561,6 @@ export default function AnalysisDownloadContent() {
     }
   };
 
-  // Add these functions to your React component
-
   // Download site template Excel
   const downloadSiteTemplate = async () => {
     try {
@@ -689,8 +687,8 @@ export default function AnalysisDownloadContent() {
     }
   };
 
-  // Main download function - COMPLETELY REPLACED
-  const downloadCSV = async () => {
+  // UPDATED: Main download function - now always creates ZIP with README
+  const downloadAnalysisData = async () => {
     // Helper function to validate and clean incomplete selections
     const validateAndCleanSelections = (
       selectedAnalysisLocations: string[],
@@ -969,7 +967,7 @@ export default function AnalysisDownloadContent() {
       return deduplicated;
     };
 
-    // Helper function to generate CSV content (2 rows only)
+    // Helper function to generate CSV content (3 rows)
     const generateCSVContent = (
       laboratoryName: string,
       parameters: Array<{
@@ -1005,31 +1003,64 @@ export default function AnalysisDownloadContent() {
       return `${row1}\n${row2}\n${row3}`;
     };
 
-    // Helper function to download a single file
-    const downloadSingleFile = (filename: string, content: string): void => {
-      const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
+    // NEW: Function to fetch README file from public folder
+    const fetchReadmeFile = async (): Promise<string> => {
+      try {
+        console.log('📄 Fetching download_readme.md file...');
+        
+        const response = await fetch(
+          'http://localhost:3001/api/download-readme-md?t=' + Date.now(),
+        );
 
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename;
-      link.style.display = 'none';
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+        const readmeContent = await response.text();
+        console.log('✅ README file fetched successfully');
+        return readmeContent;
+      } catch (error) {
+        console.error('⚠️ Failed to fetch README file:', error);
+        // Return a default README content if fetch fails
+        return `# Water Quality Data Download
 
-      URL.revokeObjectURL(url);
+## Overview
+This package contains water quality analysis data downloaded from the Water Data Portal.
+
+## File Structure
+- **CSV files**: Laboratory-specific water quality parameter data
+- **README.md**: This documentation file
+
+## Data Format
+Each CSV file contains:
+- Row 1: Laboratory name and method names
+- Row 2: Static headers and parameter generic names  
+- Row 3: Units for each parameter
+
+## Contact
+For questions about this data, please contact the Water Data Portal administrators.
+
+Generated on: ${new Date().toISOString()}
+`;
+      }
     };
 
-    // Helper function to download multiple files as ZIP
-    const downloadMultipleFilesAsZip = async (
+    // NEW: Updated function to create ZIP with README - always creates ZIP
+    const downloadZipWithReadme = async (
       files: Array<{ filename: string; content: string }>,
     ): Promise<void> => {
       try {
+        console.log('📦 Creating ZIP package with README...');
+        
+        // Fetch the README file
+        const readmeContent = await fetchReadmeFile();
+        
         const zip = new JSZip();
 
-        // Add each file to the ZIP
+        // Add README file first
+        zip.file('download_readme.md', readmeContent);
+
+        // Add all CSV files to the ZIP
         files.forEach(file => {
           zip.file(file.filename, file.content);
         });
@@ -1049,10 +1080,12 @@ export default function AnalysisDownloadContent() {
         document.body.removeChild(link);
 
         URL.revokeObjectURL(url);
+        
+        console.log('✅ ZIP package downloaded successfully');
       } catch (error) {
-        console.error('Error creating ZIP file:', error);
+        console.error('❌ Error creating ZIP file:', error);
         throw new Error(
-          'Failed to create ZIP file. Falling back to individual downloads.',
+          'Failed to create ZIP file with README. Please try again.',
         );
       }
     };
@@ -1139,7 +1172,7 @@ export default function AnalysisDownloadContent() {
         );
 
         if (deduplicatedParameters.length > 0) {
-          // Step 3c: Generate CSV content (2 rows only)
+          // Step 3c: Generate CSV content (3 rows)
           const csvContent = generateCSVContent(laboratory, deduplicatedParameters);
 
           // Step 3d: Create filename (laboratory name + .csv)
@@ -1167,49 +1200,16 @@ export default function AnalysisDownloadContent() {
         return;
       }
 
-      // Step 4: Download files
-      console.log(`📥 Step 4: Downloading ${filesToDownload.length} files...`);
+      // Step 4: Always download as ZIP with README
+      console.log(`📥 Step 4: Creating ZIP package with ${filesToDownload.length} CSV files + README...`);
 
-      if (filesToDownload.length === 1) {
-        // Single file - direct download
-        console.log('📄 Single file download');
-        downloadSingleFile(
-          filesToDownload[0].filename,
-          filesToDownload[0].content,
-        );
-      } else {
-        // Multiple files - try ZIP, fallback to individual downloads
-        console.log('📦 Multiple files - attempting ZIP download');
-        try {
-          await downloadMultipleFilesAsZip(filesToDownload);
-          console.log('✅ ZIP download successful');
-        } catch (zipError) {
-          console.warn(
-            '⚠️ ZIP download failed, falling back to individual downloads:',
-            zipError,
-          );
-
-          // Fallback: download files individually with delay
-          for (let i = 0; i < filesToDownload.length; i++) {
-            const file = filesToDownload[i];
-            setTimeout(() => {
-              downloadSingleFile(file.filename, file.content);
-            }, i * 500); // 500ms delay between downloads
-          }
-
-          alert(
-            `ZIP creation failed. Downloading ${filesToDownload.length} files individually. Please check your downloads folder.`,
-          );
-        }
-      }
+      await downloadZipWithReadme(filesToDownload);
 
       // Step 5: Success feedback
-      const successMessage = `Successfully generated ${
-        filesToDownload.length
-      } CSV file(s):\n\n${filesToDownload
+      const successMessage = `Successfully generated ZIP package containing:\n\n• download_readme.md (documentation)\n${filesToDownload
         .map(f => `• ${f.filename}`)
-        .join('\n')}\n\nTotal unique parameters: ${filesToDownload.reduce(
-        (sum, file) => sum + file.content.split('\n')[0].split(',').length,
+        .join('\n')}\n\nTotal CSV files: ${filesToDownload.length}\nTotal unique parameters: ${filesToDownload.reduce(
+        (sum, file) => sum + file.content.split('\n')[1].split(',').length - 7,
         0,
       )}`;
 
@@ -1342,7 +1342,7 @@ export default function AnalysisDownloadContent() {
         >
           Select analysis locations, laboratories, analyte groups, and specific
           methods to download water quality data. Navigate through the 4-layer
-          hierarchical structure to build your custom dataset.
+          hierarchical structure to build your custom dataset. All downloads include documentation.
         </p>
       </div>
 
@@ -1867,7 +1867,6 @@ export default function AnalysisDownloadContent() {
       </div>
 
       {/* Additional CSV Downloads Section */}
-      {/* Updated Additional CSV Downloads Section */}
       <div
         style={{
           borderTop: '2px solid #e0e0e0',
@@ -1903,7 +1902,7 @@ export default function AnalysisDownloadContent() {
             gap: '16px',
           }}
         >
-          {/* Existing Sample Data Download */}
+          {/* Sample Data Download */}
           <div
             style={{
               background: '#f8f9fa',
@@ -1960,7 +1959,7 @@ export default function AnalysisDownloadContent() {
             </button>
           </div>
 
-          {/* Existing Monitoring Sites Download */}
+          {/* Monitoring Sites Download */}
           <div
             style={{
               background: '#f8f9fa',
@@ -2017,7 +2016,7 @@ export default function AnalysisDownloadContent() {
             </button>
           </div>
 
-          {/* NEW: Site Template Download */}
+          {/* Site Template Download */}
           <div
             style={{
               background: '#f8f9fa',
@@ -2074,7 +2073,7 @@ export default function AnalysisDownloadContent() {
             </button>
           </div>
 
-          {/* NEW: Project Template Download */}
+          {/* Project Template Download */}
           <div
             style={{
               background: '#f8f9fa',
@@ -2131,7 +2130,7 @@ export default function AnalysisDownloadContent() {
             </button>
           </div>
 
-          {/* NEW: Metadata Statement Template Download */}
+          {/* Metadata Statement Template Download */}
           <div
             style={{
               background: '#f8f9fa',
@@ -2236,8 +2235,7 @@ export default function AnalysisDownloadContent() {
                 marginBottom: '4px',
               }}
             >
-              Files will be generated per Laboratory with composite key
-              deduplication (Generic Name + Unit)
+              ZIP package will include CSV files + documentation (README.md)
             </div>
             {selectedEndDate && (
               <div
@@ -2252,7 +2250,7 @@ export default function AnalysisDownloadContent() {
             )}
           </div>
           <button
-            onClick={downloadCSV}
+            onClick={downloadAnalysisData}
             disabled={getSelectedDataCount() === 0}
             style={{
               background: getSelectedDataCount() > 0 ? '#6bbe27' : '#cccccc',
@@ -2311,12 +2309,14 @@ export default function AnalysisDownloadContent() {
           }}
         >
           <p style={{ margin: '4px 0' }}>
+            <strong>Download Package:</strong> ZIP file with CSV data + README.md documentation
+          </p>
+          <p style={{ margin: '4px 0' }}>
             <strong>Hierarchy:</strong> Analysis Location → Laboratory → Analyte
             Group → Method → Parameters
           </p>
           <p style={{ margin: '4px 0' }}>
-            <strong>Output CSV Format:</strong> Row 1: Generic Names, Row 2:
-            Units
+            <strong>CSV Format:</strong> Row 1: Laboratory + Methods, Row 2: Headers + Generic Names, Row 3: Units
           </p>
           <p style={{ margin: '4px 0' }}>
             <strong>Deduplication:</strong> Based on composite key (Generic Name
