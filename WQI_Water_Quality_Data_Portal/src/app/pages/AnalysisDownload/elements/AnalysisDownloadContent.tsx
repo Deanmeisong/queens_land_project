@@ -971,24 +971,38 @@ export default function AnalysisDownloadContent() {
 
     // Helper function to generate CSV content (2 rows only)
     const generateCSVContent = (
+      laboratoryName: string,
       parameters: Array<{
         genericName: string;
         unit: string;
         methodName: string;
         analysisLocation: string;
-      }>,
+      }>
     ): string => {
-      if (parameters.length === 0) return '';
+      const staticColumnsCount = 7;
+      const staticRow1 = [
+        `"${laboratoryName}"`,
+        ...Array(staticColumnsCount - 1).fill('')
+      ];
+      const staticRow2 = [
+        "Project Code",
+        "Site Code",
+        "Sampling Date Time",
+        "Sample Unique Identifier",
+        "Sample Collection Method",
+        "Depth (m)",
+        "Comment"
+      ];
+      const staticRow3 = Array(staticColumnsCount).fill('');
+      const dynamicRow1 = parameters.map(param => `"${param.methodName}"`);
+      const dynamicRow2 = parameters.map(param => `"${param.genericName}"`);
+      const dynamicRow3 = parameters.map(param => `"${param.unit}"`);
 
-      // Row 1: Generic Names
-      const genericNameRow = parameters
-        .map(param => `"${param.genericName}"`)
-        .join(',');
+      const row1 = [...staticRow1, ...dynamicRow1].join(',');
+      const row2 = [...staticRow2, ...dynamicRow2].join(',');
+      const row3 = [...staticRow3, ...dynamicRow3].join(',');
 
-      // Row 2: Units
-      const unitRow = parameters.map(param => `"${param.unit}"`).join(',');
-
-      return `${genericNameRow}\n${unitRow}`;
+      return `${row1}\n${row2}\n${row3}`;
     };
 
     // Helper function to download a single file
@@ -1126,7 +1140,7 @@ export default function AnalysisDownloadContent() {
 
         if (deduplicatedParameters.length > 0) {
           // Step 3c: Generate CSV content (2 rows only)
-          const csvContent = generateCSVContent(deduplicatedParameters);
+          const csvContent = generateCSVContent(laboratory, deduplicatedParameters);
 
           // Step 3d: Create filename (laboratory name + .csv)
           const filename = `${laboratory}.csv`;
