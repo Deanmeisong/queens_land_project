@@ -1346,8 +1346,8 @@ Generated on: ${new Date().toISOString()}
         </p>
       </div>
 
-      {/* End Date Filter */}
-      <div
+      {/* COMMENTED OUT - End Date Filter */}
+      {/* <div
         style={{
           marginBottom: '40px',
           padding: '20px',
@@ -1388,6 +1388,273 @@ Generated on: ${new Date().toISOString()}
             (Excludes records with end dates older than 5 years from selected
             date)
           </span>
+        </div>
+      </div> */}
+
+      {/* MOVED FROM ADDITIONAL DATA DOWNLOADS SECTION - 4 Download Buttons */}
+      <div
+        style={{
+          marginBottom: '40px',
+          padding: '20px',
+          background: '#f5f5f5',
+          borderRadius: '8px',
+        }}
+      >
+        <h3
+          style={{
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color: '#05325f',
+            marginBottom: '16px',
+          }}
+        >
+          Quick Data Downloads
+        </h3>
+        <p
+          style={{
+            fontSize: '14px',
+            color: '#666',
+            marginBottom: '20px',
+            lineHeight: 1.5,
+          }}
+        >
+          Download CSV files and Excel templates for data analysis and reporting.
+        </p>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '16px',
+          }}
+        >
+          {/* Monitoring Sites Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>📍</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Monitoring Sites
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Geographic locations and metadata for water quality monitoring sites.
+            </p>
+            <button
+              onClick={downloadMonitoringSites}
+              style={{
+                background: '#388e3c',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download monitoring_sites.csv
+            </button>
+          </div>
+
+          {/* Site Template Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>🏗️</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Site Template
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Excel template for organizing and submitting site location data.
+            </p>
+            <button
+              onClick={downloadSiteTemplate}
+              style={{
+                background: '#ff9800',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download site_template.xlsx
+            </button>
+          </div>
+
+          {/* Project Template Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>📋</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Project Template
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Excel template for project information and metadata organization.
+            </p>
+            <button
+              onClick={downloadProjectTemplate}
+              style={{
+                background: '#9c27b0',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download project_template.xlsx
+            </button>
+          </div>
+
+          {/* Metadata Statement Template Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>📄</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Metadata Statement
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Excel template for creating detailed metadata statements and documentation.
+            </p>
+            <button
+              onClick={downloadMetadataStatementTemplate}
+              style={{
+                background: '#795548',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download metadata_statement_template.xlsx
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1866,8 +2133,8 @@ Generated on: ${new Date().toISOString()}
         </div>
       </div>
 
-      {/* Additional CSV Downloads Section */}
-      <div
+      {/* COMMENTED OUT - Additional CSV Downloads Section */}
+      {/* <div
         style={{
           borderTop: '2px solid #e0e0e0',
           paddingTop: '24px',
@@ -1902,8 +2169,8 @@ Generated on: ${new Date().toISOString()}
             gap: '16px',
           }}
         >
-          {/* Sample Data Download */}
-          <div
+          {/* Sample Data Download - COMMENTED OUT */}
+          {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -1957,10 +2224,10 @@ Generated on: ${new Date().toISOString()}
             >
               Download sample_data.csv
             </button>
-          </div>
+          </div> */}
 
-          {/* Monitoring Sites Download */}
-          <div
+          {/* MOVED TO TOP - Monitoring Sites Download */}
+          {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2014,10 +2281,10 @@ Generated on: ${new Date().toISOString()}
             >
               Download monitoring_sites.csv
             </button>
-          </div>
+          </div> */}
 
-          {/* Site Template Download */}
-          <div
+          {/* MOVED TO TOP - Site Template Download */}
+          {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2071,10 +2338,10 @@ Generated on: ${new Date().toISOString()}
             >
               Download site_template.xlsx
             </button>
-          </div>
+          </div> */}
 
-          {/* Project Template Download */}
-          <div
+          {/* MOVED TO TOP - Project Template Download */}
+          {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2128,10 +2395,10 @@ Generated on: ${new Date().toISOString()}
             >
               Download project_template.xlsx
             </button>
-          </div>
+          </div> */}
 
-          {/* Metadata Statement Template Download */}
-          <div
+          {/* MOVED TO TOP - Metadata Statement Template Download */}
+          {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2185,9 +2452,9 @@ Generated on: ${new Date().toISOString()}
             >
               Download metadata_statement_template.xlsx
             </button>
-          </div>
-        </div>
-      </div>
+          </div> */}
+        {/* </div>
+      </div> */}
 
       {/* Download Section */}
       <div
@@ -2237,7 +2504,8 @@ Generated on: ${new Date().toISOString()}
             >
               ZIP package will include CSV files + documentation (README.md)
             </div>
-            {selectedEndDate && (
+            {/* COMMENTED OUT - Date filter info */}
+            {/* {selectedEndDate && (
               <div
                 style={{
                   fontSize: '14px',
@@ -2247,7 +2515,7 @@ Generated on: ${new Date().toISOString()}
                 🗓️ Filtered by end date: {selectedEndDate} (excluding records
                 older than 5 years)
               </div>
-            )}
+            )} */}
           </div>
           <button
             onClick={downloadAnalysisData}
