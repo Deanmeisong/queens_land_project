@@ -256,6 +256,34 @@ router.get('/metadata-statement-template-xlsx', async (req, res) => {
   }
 });
 
+// NEW: Inhouse Laboratory Template Excel endpoint
+router.get('/inhouse-laboratory-template-xlsx', async (req, res) => {
+  try {
+    const response = await axios.get(
+      `${process.env.MOCK_SERVER_URL}/inhouse_laboratory_template.xlsx`,
+      {
+        timeout: 10000,
+        responseType: 'arraybuffer',
+      },
+    );
+
+    res.set({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition':
+        'attachment; filename="inhouse_laboratory_template.xlsx"',
+    });
+
+    res.send(response.data);
+  } catch (error) {
+    res.status(500).json({
+      error: 'Failed to fetch inhouse laboratory template Excel',
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
+});
+
 // Updated backend route in routes/csv.js
 router.post('/download-zip', async (req, res) => {
   const startTime = Date.now();
@@ -428,6 +456,38 @@ router.get('/csv-info', (req, res) => {
     totalFiles: info.length,
     zipEndpoint: '/api/download-zip',
   });
+});
+
+// Download README Markdown endpoint
+router.get('/download-readme-md', async (req, res) => {
+  try {
+    const response = await axios.get(
+      `${process.env.MOCK_SERVER_URL}/download_readme.md`,
+      {
+        timeout: 10000,
+        responseType: 'text',
+        headers: {
+          'User-Agent': 'Water-Quality-Portal/1.0',
+          Accept: 'text/markdown, text/plain, */*',
+        },
+      },
+    );
+
+    res.set({
+      'Content-Type': 'text/markdown; charset=utf-8',
+      'Cache-Control': 'public, max-age=60',
+      'Content-Disposition': 'inline',
+    });
+
+    res.send(response.data);
+  } catch (error) {
+    console.error('❌ Error fetching download README:', error.message);
+    res.status(500).json({
+      error: 'Failed to fetch download README',
+      details: error.message,
+      timestamp: new Date().toISOString(),
+    });
+  }
 });
 
 module.exports = router;

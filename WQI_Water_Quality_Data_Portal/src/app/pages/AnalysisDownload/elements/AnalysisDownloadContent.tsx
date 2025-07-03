@@ -521,28 +521,71 @@ export default function AnalysisDownloadContent() {
     }
   };
 
-  // Download monitoring sites CSV
-  const downloadMonitoringSites = async () => {
+  // COMMENTED OUT - Download monitoring sites CSV
+  // const downloadMonitoringSites = async () => {
+  //   try {
+  //     console.log('🔽 Starting monitoring sites download...');
+
+  //     const response = await fetch(
+  //       'http://localhost:3001/api/monitoring-sites-csv?t=' + Date.now(),
+  //     );
+
+  //     if (!response.ok) {
+  //       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  //     }
+
+  //     const csvContent = await response.text();
+
+  //     // Create and download the file
+  //     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  //     const url = URL.createObjectURL(blob);
+
+  //     const link = document.createElement('a');
+  //     link.href = url;
+  //     link.download = 'monitoring_sites.csv';
+  //     link.style.display = 'none';
+
+  //     document.body.appendChild(link);
+  //     link.click();
+  //     document.body.removeChild(link);
+
+  //     URL.revokeObjectURL(url);
+
+  //     console.log('✅ Monitoring sites downloaded successfully');
+  //     alert('Monitoring sites CSV downloaded successfully!');
+  //   } catch (error) {
+  //     console.error('❌ Monitoring sites download failed:', error);
+  //     const errorMessage =
+  //       error instanceof Error ? error.message : 'Unknown error occurred';
+  //     alert(`Failed to download monitoring sites: ${errorMessage}`);
+  //   }
+  // };
+
+  // NEW: Download inhouse laboratory template Excel
+  const downloadInhouseLaboratoryTemplate = async () => {
     try {
-      console.log('🔽 Starting monitoring sites download...');
+      console.log('🔽 Starting inhouse laboratory template download...');
 
       const response = await fetch(
-        'http://localhost:3001/api/monitoring-sites-csv?t=' + Date.now(),
+        'http://localhost:3001/api/inhouse-laboratory-template-xlsx?t=' +
+          Date.now(),
       );
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
 
-      const csvContent = await response.text();
+      const excelContent = await response.arrayBuffer();
 
       // Create and download the file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const blob = new Blob([excelContent], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
       const url = URL.createObjectURL(blob);
 
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'monitoring_sites.csv';
+      link.download = 'inhouse_laboratory_template.xlsx';
       link.style.display = 'none';
 
       document.body.appendChild(link);
@@ -551,13 +594,13 @@ export default function AnalysisDownloadContent() {
 
       URL.revokeObjectURL(url);
 
-      console.log('✅ Monitoring sites downloaded successfully');
-      alert('Monitoring sites CSV downloaded successfully!');
+      console.log('✅ Inhouse laboratory template downloaded successfully');
+      alert('Inhouse laboratory template Excel downloaded successfully!');
     } catch (error) {
-      console.error('❌ Monitoring sites download failed:', error);
+      console.error('❌ Inhouse laboratory template download failed:', error);
       const errorMessage =
         error instanceof Error ? error.message : 'Unknown error occurred';
-      alert(`Failed to download monitoring sites: ${errorMessage}`);
+      alert(`Failed to download inhouse laboratory template: ${errorMessage}`);
     }
   };
 
@@ -577,8 +620,8 @@ export default function AnalysisDownloadContent() {
       const excelContent = await response.arrayBuffer();
 
       // Create and download the file
-      const blob = new Blob([excelContent], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      const blob = new Blob([excelContent], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       const url = URL.createObjectURL(blob);
 
@@ -619,8 +662,8 @@ export default function AnalysisDownloadContent() {
       const excelContent = await response.arrayBuffer();
 
       // Create and download the file
-      const blob = new Blob([excelContent], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      const blob = new Blob([excelContent], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       const url = URL.createObjectURL(blob);
 
@@ -651,7 +694,8 @@ export default function AnalysisDownloadContent() {
       console.log('🔽 Starting metadata statement template download...');
 
       const response = await fetch(
-        'http://localhost:3001/api/metadata-statement-template-xlsx?t=' + Date.now(),
+        'http://localhost:3001/api/metadata-statement-template-xlsx?t=' +
+          Date.now(),
       );
 
       if (!response.ok) {
@@ -661,8 +705,8 @@ export default function AnalysisDownloadContent() {
       const excelContent = await response.arrayBuffer();
 
       // Create and download the file
-      const blob = new Blob([excelContent], { 
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      const blob = new Blob([excelContent], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       });
       const url = URL.createObjectURL(blob);
 
@@ -975,21 +1019,21 @@ export default function AnalysisDownloadContent() {
         unit: string;
         methodName: string;
         analysisLocation: string;
-      }>
+      }>,
     ): string => {
       const staticColumnsCount = 7;
       const staticRow1 = [
         `"${laboratoryName}"`,
-        ...Array(staticColumnsCount - 1).fill('')
+        ...Array(staticColumnsCount - 1).fill(''),
       ];
       const staticRow2 = [
-        "Project Code",
-        "Site Code",
-        "Sampling Date Time",
-        "Sample Unique Identifier",
-        "Sample Collection Method",
-        "Depth (m)",
-        "Comment"
+        'Project Code',
+        'Site Code',
+        'Sampling Date Time',
+        'Sample Unique Identifier',
+        'Sample Collection Method',
+        'Depth (m)',
+        'Comment',
       ];
       const staticRow3 = Array(staticColumnsCount).fill('');
       const dynamicRow1 = parameters.map(param => `"${param.methodName}"`);
@@ -1003,22 +1047,43 @@ export default function AnalysisDownloadContent() {
       return `${row1}\n${row2}\n${row3}`;
     };
 
-    // NEW: Function to fetch README file from public folder
+    // NEW: Function to fetch README file from mock server (alternative approach)
     const fetchReadmeFile = async (): Promise<string> => {
       try {
         console.log('📄 Fetching download_readme.md file...');
-        
-        const response = await fetch(
-          'http://localhost:3001/api/download-readme-md?t=' + Date.now(),
-        );
 
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Try the backend API first
+        try {
+          const response = await fetch(
+            'http://localhost:3001/api/download-readme-md?t=' + Date.now(),
+          );
+
+          if (response.ok) {
+            const readmeContent = await response.text();
+            console.log('✅ README file fetched successfully from backend API');
+            return readmeContent;
+          }
+        } catch (apiError) {
+          console.log('⚠️ Backend API failed, trying mock server...');
         }
 
-        const readmeContent = await response.text();
-        console.log('✅ README file fetched successfully');
-        return readmeContent;
+        // Fallback: try fetching directly from mock server
+        try {
+          const response = await fetch(
+            'http://localhost:8080/wqinv_templates/download_readme.md?t=' +
+              Date.now(),
+          );
+
+          if (response.ok) {
+            const readmeContent = await response.text();
+            console.log('✅ README file fetched successfully from mock server');
+            return readmeContent;
+          }
+        } catch (mockError) {
+          console.log('⚠️ Mock server also failed, using fallback content...');
+        }
+
+        throw new Error('Both backend API and mock server failed');
       } catch (error) {
         console.error('⚠️ Failed to fetch README file:', error);
         // Return a default README content if fetch fails
@@ -1051,10 +1116,10 @@ Generated on: ${new Date().toISOString()}
     ): Promise<void> => {
       try {
         console.log('📦 Creating ZIP package with README...');
-        
+
         // Fetch the README file
         const readmeContent = await fetchReadmeFile();
-        
+
         const zip = new JSZip();
 
         // Add README file first
@@ -1080,7 +1145,7 @@ Generated on: ${new Date().toISOString()}
         document.body.removeChild(link);
 
         URL.revokeObjectURL(url);
-        
+
         console.log('✅ ZIP package downloaded successfully');
       } catch (error) {
         console.error('❌ Error creating ZIP file:', error);
@@ -1173,7 +1238,10 @@ Generated on: ${new Date().toISOString()}
 
         if (deduplicatedParameters.length > 0) {
           // Step 3c: Generate CSV content (3 rows)
-          const csvContent = generateCSVContent(laboratory, deduplicatedParameters);
+          const csvContent = generateCSVContent(
+            laboratory,
+            deduplicatedParameters,
+          );
 
           // Step 3d: Create filename (laboratory name + .csv)
           const filename = `${laboratory}.csv`;
@@ -1201,14 +1269,18 @@ Generated on: ${new Date().toISOString()}
       }
 
       // Step 4: Always download as ZIP with README
-      console.log(`📥 Step 4: Creating ZIP package with ${filesToDownload.length} CSV files + README...`);
+      console.log(
+        `📥 Step 4: Creating ZIP package with ${filesToDownload.length} CSV files + README...`,
+      );
 
       await downloadZipWithReadme(filesToDownload);
 
       // Step 5: Success feedback
       const successMessage = `Successfully generated ZIP package containing:\n\n• download_readme.md (documentation)\n${filesToDownload
         .map(f => `• ${f.filename}`)
-        .join('\n')}\n\nTotal CSV files: ${filesToDownload.length}\nTotal unique parameters: ${filesToDownload.reduce(
+        .join('\n')}\n\nTotal CSV files: ${
+        filesToDownload.length
+      }\nTotal unique parameters: ${filesToDownload.reduce(
         (sum, file) => sum + file.content.split('\n')[1].split(',').length - 7,
         0,
       )}`;
@@ -1342,7 +1414,8 @@ Generated on: ${new Date().toISOString()}
         >
           Select analysis locations, laboratories, analyte groups, and specific
           methods to download water quality data. Navigate through the 4-layer
-          hierarchical structure to build your custom dataset. All downloads include documentation.
+          hierarchical structure to build your custom dataset. All downloads
+          include documentation.
         </p>
       </div>
 
@@ -1418,7 +1491,8 @@ Generated on: ${new Date().toISOString()}
             lineHeight: 1.5,
           }}
         >
-          Download CSV files and Excel templates for data analysis and reporting.
+          Download CSV files and Excel templates for data analysis and
+          reporting.
         </p>
 
         <div
@@ -1428,8 +1502,8 @@ Generated on: ${new Date().toISOString()}
             gap: '16px',
           }}
         >
-          {/* Monitoring Sites Download */}
-          <div
+          {/* COMMENTED OUT - Monitoring Sites Download */}
+          {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -1482,6 +1556,64 @@ Generated on: ${new Date().toISOString()}
               }}
             >
               Download monitoring_sites.csv
+            </button>
+          </div> */}
+
+          {/* NEW: Inhouse Laboratory Template Download */}
+          <div
+            style={{
+              background: '#f8f9fa',
+              border: '1px solid #e9ecef',
+              borderRadius: '8px',
+              padding: '20px',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                marginBottom: '12px',
+              }}
+            >
+              <span style={{ fontSize: '24px', marginRight: '12px' }}>🧪</span>
+              <h3
+                style={{
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: '#05325f',
+                  margin: 0,
+                }}
+              >
+                Inhouse Laboratory Template
+              </h3>
+            </div>
+            <p
+              style={{
+                fontSize: '14px',
+                color: '#666',
+                marginBottom: '16px',
+                lineHeight: 1.4,
+              }}
+            >
+              Excel template for inhouse laboratory data organization and
+              reporting.
+            </p>
+            <button
+              onClick={downloadInhouseLaboratoryTemplate}
+              style={{
+                background: '#388e3c',
+                color: 'white',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                width: '100%',
+              }}
+            >
+              Download inhouse_laboratory_template.xlsx
             </button>
           </div>
 
@@ -1635,7 +1767,8 @@ Generated on: ${new Date().toISOString()}
                 lineHeight: 1.4,
               }}
             >
-              Excel template for creating detailed metadata statements and documentation.
+              Excel template for creating detailed metadata statements and
+              documentation.
             </p>
             <button
               onClick={downloadMetadataStatementTemplate}
@@ -2170,7 +2303,7 @@ Generated on: ${new Date().toISOString()}
           }}
         >
           {/* Sample Data Download - COMMENTED OUT */}
-          {/* <div
+      {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2226,8 +2359,8 @@ Generated on: ${new Date().toISOString()}
             </button>
           </div> */}
 
-          {/* MOVED TO TOP - Monitoring Sites Download */}
-          {/* <div
+      {/* MOVED TO TOP - Monitoring Sites Download */}
+      {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2283,8 +2416,8 @@ Generated on: ${new Date().toISOString()}
             </button>
           </div> */}
 
-          {/* MOVED TO TOP - Site Template Download */}
-          {/* <div
+      {/* MOVED TO TOP - Site Template Download */}
+      {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2340,8 +2473,8 @@ Generated on: ${new Date().toISOString()}
             </button>
           </div> */}
 
-          {/* MOVED TO TOP - Project Template Download */}
-          {/* <div
+      {/* MOVED TO TOP - Project Template Download */}
+      {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2397,8 +2530,8 @@ Generated on: ${new Date().toISOString()}
             </button>
           </div> */}
 
-          {/* MOVED TO TOP - Metadata Statement Template Download */}
-          {/* <div
+      {/* MOVED TO TOP - Metadata Statement Template Download */}
+      {/* <div
             style={{
               background: '#f8f9fa',
               border: '1px solid #e9ecef',
@@ -2453,7 +2586,7 @@ Generated on: ${new Date().toISOString()}
               Download metadata_statement_template.xlsx
             </button>
           </div> */}
-        {/* </div>
+      {/* </div>
       </div> */}
 
       {/* Download Section */}
@@ -2577,14 +2710,16 @@ Generated on: ${new Date().toISOString()}
           }}
         >
           <p style={{ margin: '4px 0' }}>
-            <strong>Download Package:</strong> ZIP file with CSV data + README.md documentation
+            <strong>Download Package:</strong> ZIP file with CSV data +
+            README.md documentation
           </p>
           <p style={{ margin: '4px 0' }}>
             <strong>Hierarchy:</strong> Analysis Location → Laboratory → Analyte
             Group → Method → Parameters
           </p>
           <p style={{ margin: '4px 0' }}>
-            <strong>CSV Format:</strong> Row 1: Laboratory + Methods, Row 2: Headers + Generic Names, Row 3: Units
+            <strong>CSV Format:</strong> Row 1: Laboratory + Methods, Row 2:
+            Headers + Generic Names, Row 3: Units
           </p>
           <p style={{ margin: '4px 0' }}>
             <strong>Deduplication:</strong> Based on composite key (Generic Name
